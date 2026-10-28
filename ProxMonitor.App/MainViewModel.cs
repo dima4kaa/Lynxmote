@@ -284,6 +284,19 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     void ClearEvents() => Events.Clear();
 
+    /// <summary>The row for an event, with the tab and filters cleared if they hide it; null if it is gone.</summary>
+    public ResourceRow? Reveal(string key)
+    {
+        if (!_rows.TryGetValue(key, out var row)) return null;
+        if (!Matches(row))
+        {
+            Search = "";
+            OnlyProblems = false;
+            SelectedTab = Tabs[0];
+        }
+        return row;
+    }
+
     // ---- polling ----
 
     void PollDue()

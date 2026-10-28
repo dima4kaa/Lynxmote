@@ -11,7 +11,11 @@ public partial class PropertiesWindow : Window
     readonly MainViewModel? _vm;
     bool _loading = true;
 
-    public PropertiesWindow() => InitializeComponent();
+    public PropertiesWindow()
+    {
+        InitializeComponent();
+        this.UseOwnTitleBar(TitleBar, captionButtons: true);
+    }
 
     public PropertiesWindow(ResourceRow row, MainViewModel vm) : this()
     {

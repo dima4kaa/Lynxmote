@@ -32,7 +32,11 @@ public partial class TerminalWindow : Window
     int _historyPos;
     string? _host, _seenHostKey;
 
-    public TerminalWindow() => InitializeComponent();
+    public TerminalWindow()
+    {
+        InitializeComponent();
+        this.UseOwnTitleBar(TitleBar, captionButtons: true);
+    }
 
     public TerminalWindow(ResourceRow row, MainViewModel vm) : this()
     {

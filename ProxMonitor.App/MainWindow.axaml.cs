@@ -81,6 +81,14 @@ public partial class MainWindow : Window
         if ((e.Source as StyledElement)?.DataContext is ResourceRow row) OpenProperties(row);
     }
 
+    void Log_DoubleTapped(object? sender, TappedEventArgs e)
+    {
+        // Server-wide events (lost connection) have no row to point at.
+        if ((e.Source as StyledElement)?.DataContext is not AlertEvent { Id: { } key } || Vm.Reveal(key) is not { } row) return;
+        ResourceGrid.SelectedItem = row;
+        ResourceGrid.ScrollIntoView(row, null);
+    }
+
     void RowMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         var rows = SelectedRows;
@@ -299,6 +307,7 @@ public partial class MainWindow : Window
                 },
             },
         };
+        dialog.UseOwnTitleBar(dialog, captionButtons: false);
         dialog.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape) dialog.Close();

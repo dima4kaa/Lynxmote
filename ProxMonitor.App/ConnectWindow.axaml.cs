@@ -10,7 +10,11 @@ public partial class ConnectWindow : Window
 {
     string? _seenCert;
 
-    public ConnectWindow() => InitializeComponent();
+    public ConnectWindow()
+    {
+        InitializeComponent();
+        this.UseOwnTitleBar(this, captionButtons: false);
+    }
 
     void Cancel_Click(object? sender, RoutedEventArgs e) => Close(null);
 

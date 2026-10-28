@@ -39,10 +39,10 @@
     </Style>
   </Window.Styles>
 
-  <DockPanel>
-    <!-- Header -->
-    <Border DockPanel.Dock="Top" Background="#14171D" BorderBrush="#232832" BorderThickness="0,0,0,1" Padding="16,10">
-      <DockPanel>
+  <DockPanel Margin="{Binding $parent[Window].OffScreenMargin}">
+    <!-- Header: also the title bar; the right margin leaves room for the caption buttons -->
+    <Border x:Name="TitleBar" DockPanel.Dock="Top" Background="#14171D" BorderBrush="#232832" BorderThickness="0,0,0,1" Height="40">
+      <DockPanel Margin="16,0,150,0">
         <Button DockPanel.Dock="Right" Classes="chip" Content="Очистить  Ctrl+L" Click="Clear_Click" />
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#F59E0B" />

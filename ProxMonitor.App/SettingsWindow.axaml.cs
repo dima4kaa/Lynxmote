@@ -8,7 +8,11 @@ public partial class SettingsWindow : Window
 {
     readonly MainViewModel? _vm;
 
-    public SettingsWindow() => InitializeComponent();
+    public SettingsWindow()
+    {
+        InitializeComponent();
+        this.UseOwnTitleBar(this, captionButtons: false);
+    }
 
     public SettingsWindow(MainViewModel vm) : this()
     {

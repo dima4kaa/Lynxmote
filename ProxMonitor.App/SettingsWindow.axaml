@@ -19,11 +19,6 @@
       <NumericUpDown x:Name="DiskBox" Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="100" Increment="5" FormatString="0" />
     </Grid>
 
-    <Border Classes="card" Padding="12">
-      <TextBlock FontSize="12" TextWrapping="Wrap"
-                 Text="Короткие всплески не тревожат: предупреждение приходит, когда превышение видно в 2 обновлениях данных подряд или в 3 за минуту. Proxmox обновляет статистику примерно раз в 10 секунд." />
-    </Border>
-
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
       <Button Content="Отмена" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
       <Button Classes="accent" Content="Сохранить" Click="Save_Click" Padding="16,6" IsDefault="True" />

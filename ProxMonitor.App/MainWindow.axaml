@@ -268,7 +268,8 @@
                         Command="{Binding ClearEventsCommand}" />
                 <TextBlock Text="Журнал событий" FontWeight="SemiBold" VerticalAlignment="Center" />
               </DockPanel>
-              <ListBox Classes="log" ItemsSource="{Binding Events}" Background="Transparent">
+              <ListBox Classes="log" ItemsSource="{Binding Events}" Background="Transparent" DoubleTapped="Log_DoubleTapped"
+                       ToolTip.Tip="Двойной клик — показать сервер в таблице">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="core:AlertEvent">
                     <DockPanel>

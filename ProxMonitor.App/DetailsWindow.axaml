@@ -4,7 +4,7 @@
         xmlns:core="using:ProxMonitor.Core"
         x:Class="ProxMonitor.App.DetailsWindow"
         x:DataType="app:ResourceRow"
-        Title="{Binding Name}"
+        Title="{Binding Name}" Icon="/Assets/app.ico"
         Width="920" Height="720" MinWidth="720" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Bg}">
@@ -84,7 +84,8 @@
             <TextBlock Classes="value" Text="{Binding TempText}"
                        Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
             <Panel>
-              <app:Sparkline Classes="chart" Values="{Binding TempHistory}" Maximum="100" Stroke="#F59E0B" />
+              <app:Sparkline Classes="chart" Values="{Binding TempHistory}" Maximum="100" Stroke="#F59E0B"
+                             IsVisible="{Binding Temp, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
                          IsVisible="{Binding Temp, Converter={x:Static ObjectConverters.IsNull}}"
                          Text="Датчиков нет: температура есть только у нод и требует SSH и lm-sensors" />

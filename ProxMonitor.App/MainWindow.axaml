@@ -4,11 +4,18 @@
         xmlns:core="using:ProxMonitor.Core"
         x:Class="ProxMonitor.App.MainWindow"
         x:DataType="app:MainViewModel"
-        Title="ProxMonitor"
+        Title="ProxMonitor" Icon="/Assets/app.ico"
         Width="1440" Height="860" MinWidth="960" MinHeight="560"
         WindowStartupLocation="CenterScreen" WindowState="Maximized"
         ExtendClientAreaToDecorationsHint="True" ExtendClientAreaTitleBarHeightHint="48"
         Background="{DynamicResource Bg}">
+
+  <Window.Resources>
+    <!-- No spreadsheet-style cell frame: the whole row is already highlighted. -->
+    <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="DataGridCurrencyVisualPrimaryBrush" Color="Transparent" />
+  </Window.Resources>
 
   <Window.Styles>
     <Style Selector="TextBlock.statValue">
@@ -54,9 +61,6 @@
     <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle, DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle, DataGridRow:selected:focus /template/ Rectangle#BackgroundRectangle, DataGridRow:selected:pointerover:focus /template/ Rectangle#BackgroundRectangle">
       <Setter Property="Fill" Value="{DynamicResource Selected}" />
       <Setter Property="Opacity" Value="1" />
-    </Style>
-    <Style Selector="DataGridCell /template/ :is(Control)#FocusVisual">
-      <Setter Property="IsVisible" Value="False" />
     </Style>
     <Style Selector="DataGridCell TextBlock">
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -264,18 +268,18 @@
           <DataGrid.ContextMenu>
             <ContextMenu Opening="RowMenu_Opening">
               <MenuItem Header="Подробная статистика" Click="Details_Click" FontWeight="SemiBold" />
-              <Separator />
-              <MenuItem Header="Запустить" Click="Start_Click" />
-              <MenuItem Header="Перезагрузить…" Click="Reboot_Click" />
-              <MenuItem Header="Остановить…" Click="Stop_Click" />
-              <MenuItem Header="Создать снапшот" Click="Snapshot_Click" />
+              <Separator x:Name="PowerSeparator" />
+              <MenuItem x:Name="StartItem" Header="Запустить" Click="Start_Click" />
+              <MenuItem x:Name="RebootItem" Header="Перезагрузить…" Click="Reboot_Click" />
+              <MenuItem x:Name="StopItem" Header="Остановить…" Click="Stop_Click" />
+              <MenuItem x:Name="SnapshotItem" Header="Создать снапшот" Click="Snapshot_Click" />
               <Separator />
               <MenuItem x:Name="MoveMenu" Header="Переместить во вкладку" />
             </ContextMenu>
           </DataGrid.ContextMenu>
 
           <DataGrid.Columns>
-            <DataGridTemplateColumn Header="Статус" SortMemberPath="Running" Width="118">
+            <DataGridTemplateColumn Header="Статус" SortMemberPath="Running" Width="132">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center">

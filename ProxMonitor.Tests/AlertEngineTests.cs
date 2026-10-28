@@ -5,53 +5,62 @@ namespace ProxMonitor.Tests;
 public class AlertEngineTests
 {
     static readonly DateTime T0 = new(2026, 1, 1);
-    static readonly TimeSpan Hold = TimeSpan.FromSeconds(1), Window = TimeSpan.FromMinutes(1);
 
-    static ResourceSnapshot Snap(bool running = true, double cpu = 0.1, double? temp = 50, long diskUsed = 10) =>
-        new("qemu/100", "100 · web", ResourceKind.Vm, "pve-01", running, cpu, 1, 2, diskUsed, 100, temp, 0, 0, 0, TimeSpan.Zero);
+    static ResourceSnapshot Snap(bool running = true, double cpu = 0.1, double? temp = 50, long diskUsed = 10, int uptime = 0) =>
+        new("qemu/100", "100 · web", ResourceKind.Vm, "pve-01", running, cpu, 1, 2, diskUsed, 100, temp, 0, 0, 0, TimeSpan.FromSeconds(uptime));
 
     static DateTime At(double seconds) => T0.AddSeconds(seconds);
 
+    static SustainedCheck Check() => new(consecutive: 2, inWindow: 3, TimeSpan.FromMinutes(1));
+
     [Fact]
-    public void Continuous_danger_fires_after_one_second()
+    public void Single_update_blip_is_ignored()
     {
-        var check = new SustainedCheck(Hold, Window);
+        var check = Check();
         Assert.False(check.Observe("k", true, At(0)));
-        Assert.False(check.Observe("k", true, At(0.5)));
-        Assert.True(check.Observe("k", true, At(1.0)));
-        Assert.False(check.Observe("k", true, At(1.5))); // only once
+        Assert.False(check.Observe("k", false, At(10)));
     }
 
     [Fact]
-    public void Scattered_danger_adds_up_within_a_minute()
+    public void Two_updates_in_a_row_fire_once()
     {
-        var check = new SustainedCheck(Hold, Window);
-        var fired = false;
-        // 0.25 s of danger every 10 s: total reaches 1 s on the 4th blip.
-        for (var t = 0.0; t < 40; t += 0.25)
-            fired |= check.Observe("k", t % 10 == 0.25, At(t));
-        Assert.True(fired);
+        var check = Check();
+        Assert.False(check.Observe("k", true, At(0)));
+        Assert.True(check.Observe("k", true, At(10)));
+        Assert.False(check.Observe("k", true, At(20)));
     }
 
     [Fact]
-    public void Danger_older_than_the_window_is_forgotten()
+    public void Three_scattered_updates_within_a_minute_fire()
     {
-        var check = new SustainedCheck(Hold, Window);
-        Assert.False(check.Observe("k", false, At(0)));
-        Assert.False(check.Observe("k", true, At(0.6)));
-        Assert.False(check.Observe("k", false, At(70)));
-        Assert.False(check.Observe("k", true, At(70.6)));
+        var check = Check();
+        Assert.False(check.Observe("k", true, At(0)));
+        Assert.False(check.Observe("k", false, At(10)));
+        Assert.False(check.Observe("k", true, At(20)));
+        Assert.False(check.Observe("k", false, At(30)));
+        Assert.True(check.Observe("k", true, At(40)));
+    }
+
+    [Fact]
+    public void Blips_older_than_the_window_are_forgotten()
+    {
+        var check = Check();
+        check.Observe("k", true, At(0));
+        check.Observe("k", false, At(10));
+        check.Observe("k", true, At(20));
+        check.Observe("k", false, At(30));
+        Assert.False(check.Observe("k", true, At(70))); // the blip at 0 s has left the window
     }
 
     [Fact]
     public void Rearms_after_a_quiet_window()
     {
-        var check = new SustainedCheck(Hold, Window);
+        var check = Check();
         check.Observe("k", true, At(0));
-        Assert.True(check.Observe("k", true, At(1)));
-        Assert.False(check.Observe("k", false, At(62)));
-        Assert.False(check.Observe("k", true, At(62.5)));
-        Assert.True(check.Observe("k", true, At(63)));
+        Assert.True(check.Observe("k", true, At(10)));
+        Assert.False(check.Observe("k", false, At(75)));
+        Assert.False(check.Observe("k", true, At(80)));
+        Assert.True(check.Observe("k", true, At(90)));
     }
 
     [Fact]
@@ -68,12 +77,14 @@ public class AlertEngineTests
     }
 
     [Fact]
-    public void Overheat_needs_a_second()
+    public void Overheat_needs_two_fresh_updates()
     {
         var engine = new AlertEngine(new());
         engine.Observe([Snap()], At(0));
-        Assert.Empty(engine.Observe([Snap(temp: 85)], At(0.5)));
-        Assert.Contains(engine.Observe([Snap(temp: 85)], At(1.0)), e => e.Message.StartsWith("Перегрев"));
+        var hot = Snap(temp: 85, uptime: 1);
+        Assert.Empty(engine.Observe([hot], At(2)));
+        Assert.Empty(engine.Observe([hot], At(4))); // same data polled again: not a new update
+        Assert.Contains(engine.Observe([Snap(temp: 86, uptime: 11)], At(12)), e => e.Message.StartsWith("Перегрев"));
     }
 
     [Fact]

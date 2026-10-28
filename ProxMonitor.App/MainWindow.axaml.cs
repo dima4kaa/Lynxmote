@@ -87,6 +87,11 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Power actions only make sense for guests, and only the ones that change their state.
+        StartItem.IsVisible = Guests(running: false).Count > 0;
+        StopItem.IsVisible = RebootItem.IsVisible = Guests(running: true).Count > 0;
+        SnapshotItem.IsVisible = PowerSeparator.IsVisible = rows.Any(r => !r.IsNode);
+
         MoveMenu.Items.Clear();
         foreach (var tab in Vm.Tabs.Where(t => !t.IsAll))
             MoveMenu.Items.Add(Item(tab.Name, () => Vm.MoveToTab(rows, tab)));
@@ -103,14 +108,17 @@ public partial class MainWindow : Window
 
     void OpenDetails(ResourceRow row) => new DetailsWindow(row, Vm).Show(this);
 
-    async void Start_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Start, SelectedRows);
-    async void Snapshot_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Snapshot, SelectedRows);
+    List<ResourceRow> Guests(bool running) => SelectedRows.Where(r => !r.IsNode && r.Running == running).ToList();
+
+    async void Start_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Start, Guests(running: false));
+    async void Snapshot_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Snapshot, SelectedRows.Where(r => !r.IsNode).ToList());
     async void Stop_Click(object? sender, RoutedEventArgs e) => await ConfirmAndRun(PowerAction.Stop, "Остановить");
     async void Reboot_Click(object? sender, RoutedEventArgs e) => await ConfirmAndRun(PowerAction.Reboot, "Перезагрузить");
 
     async Task ConfirmAndRun(PowerAction action, string verb)
     {
-        var rows = SelectedRows;
+        var rows = Guests(running: true);
+        if (rows.Count == 0) return;
         var what = rows.Count == 1 ? rows[0].Name : $"{rows.Count} шт.";
         if (await ConfirmAsync($"{verb} {what}?", "Несохранённые данные внутри гостевой системы могут быть потеряны.", verb))
             await Vm.RunAsync(action, rows);
@@ -168,9 +176,19 @@ public partial class MainWindow : Window
         };
         var yes = new Button { Content = ok, Padding = new Thickness(16, 6) };
         yes.Classes.Add("accent");
-        var no = new Button { Content = "Отмена", Padding = new Thickness(16, 6) };
+        var no = new Button { Content = "Отмена", Padding = new Thickness(16, 6), IsCancel = true };
         yes.Click += (_, _) => dialog.Close(true);
         no.Click += (_, _) => dialog.Close(false);
+        dialog.KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape) dialog.Close(false);
+        };
+        // Opened from a context menu, which hands activation back to the main window as it closes.
+        dialog.Opened += (_, _) =>
+        {
+            dialog.Activate();
+            no.Focus();
+        };
         dialog.Content = new StackPanel
         {
             Margin = new Thickness(24), Spacing = 10,

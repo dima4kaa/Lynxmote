@@ -122,6 +122,22 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         return done;
     }
 
+    /// <summary>The node's own IP from /cluster/status, for SSH; falls back to the API host.</summary>
+    public async Task<string> NodeAddressAsync(string node, CancellationToken ct)
+    {
+        try
+        {
+            using var doc = await GetAsync("cluster/status", ct);
+            foreach (var e in doc.RootElement.GetProperty("data").EnumerateArray())
+                if (Str(e, "type") == "node" && Str(e, "name") == node && Str(e, "ip") is { Length: > 0 } ip)
+                    return ip;
+        }
+        catch (Exception e) when (e is ProxmoxException or HttpRequestException or JsonException)
+        {
+        }
+        return _http.BaseAddress!.Host;
+    }
+
     public void Dispose() => _http.Dispose();
 
     async Task<JsonDocument> GetAsync(string path, CancellationToken ct)

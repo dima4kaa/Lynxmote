@@ -3,6 +3,8 @@ using ProxMonitor.Core;
 
 namespace ProxMonitor.App;
 
+public enum Health { Ok, Danger, Off, Unknown }
+
 /// <summary>One table row; updated in place each poll so the grid keeps sort and selection.</summary>
 public partial class ResourceRow(string key, string sourceKey, string localId) : ObservableObject
 {
@@ -21,6 +23,8 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private bool _stale;
     [ObservableProperty] private bool _hasProblem;
+    [ObservableProperty] private Health _health = Health.Unknown;
+    [ObservableProperty] private string _section = "";
 
     [ObservableProperty] private double _cpu; // percent
     [ObservableProperty] private double _memPct;
@@ -67,7 +71,10 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         ConnectionsText = s.Connections?.ToString() ?? "—";
         Uptime = s.Uptime;
         UptimeText = s.Running ? FormatUptime(s.Uptime) : "—";
-        HasProblem = !s.Running || Cpu >= t.CpuPct || DiskPct >= t.DiskPct || s.TempC >= t.TempC;
+        Health = !s.Running ? Health.Off
+            : Cpu >= t.CpuPct || DiskPct >= t.DiskPct || s.TempC >= t.TempC ? Health.Danger
+            : Health.Ok;
+        HasProblem = Health != Health.Ok;
 
         CpuHistory = Append(CpuHistory, Cpu);
         CpuRecent = CpuHistory[Math.Max(0, CpuHistory.Length - RecentLength)..];
@@ -83,6 +90,7 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     {
         Stale = true;
         StatusText = "Нет данных";
+        Health = Health.Unknown;
     }
 
     static double[] Append(double[] history, double value) =>

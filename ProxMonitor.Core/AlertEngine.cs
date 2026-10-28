@@ -5,14 +5,8 @@ public enum Severity { Info, Warning, Critical }
 /// <param name="Id">Resource id the event is about, if any.</param>
 public sealed record AlertEvent(DateTime Time, Severity Severity, string ResourceName, string Message, string? Id = null);
 
-public sealed record Thresholds(double CpuPct = 90, double TempC = 80, double DiskPct = 90)
-{
-    /// <summary>Danger in this many data updates in a row alerts.</summary>
-    public int Consecutive { get; init; } = 2;
-    /// <summary>...or in this many updates within <see cref="Window"/>.</summary>
-    public int InWindow { get; init; } = 3;
-    public TimeSpan Window { get; init; } = TimeSpan.FromMinutes(1);
-}
+/// <summary>Danger levels; set globally in settings or per server in its properties.</summary>
+public sealed record Thresholds(double CpuPct = 90, double TempC = 80, double DiskPct = 90);
 
 /// <summary>
 /// Fires once when a condition shows up in <c>consecutive</c> data updates in a row, or in <c>inWindow</c> updates
@@ -53,9 +47,11 @@ public sealed class SustainedCheck(int consecutive, int inWindow, TimeSpan windo
 }
 
 /// <summary>Turns a stream of snapshots from one source into events.</summary>
-public sealed class AlertEngine(Thresholds t)
+/// <param name="thresholdsFor">Danger levels for a resource id, read on every update so edits apply at once.</param>
+public sealed class AlertEngine(Func<string, Thresholds> thresholdsFor)
 {
-    readonly SustainedCheck _hold = new(t.Consecutive, t.InWindow, t.Window);
+    // Danger in 2 updates in a row, or in 3 within a minute.
+    readonly SustainedCheck _hold = new(consecutive: 2, inWindow: 3, TimeSpan.FromMinutes(1));
     Dictionary<string, ResourceSnapshot>? _last;
 
     /// <summary>The first call only records state, except for sustained-danger tracking.</summary>
@@ -77,6 +73,7 @@ public sealed class AlertEngine(Thresholds t)
 
             // We poll faster than Proxmox refreshes; an identical snapshot is the same data update, not a new one.
             if (r == p) continue;
+            var t = thresholdsFor(r.Id);
             if (_hold.Observe(r.Id + "|cpu", r.Cpu * 100 >= t.CpuPct, now))
                 events.Add(new(now, Severity.Warning, r.Name, $"Нагрузка CPU {r.Cpu * 100:0}% (порог {t.CpuPct:0}%)", r.Id));
             if (_hold.Observe(r.Id + "|temp", r.TempC >= t.TempC, now))

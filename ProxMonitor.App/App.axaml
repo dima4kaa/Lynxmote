@@ -6,13 +6,14 @@
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="Bg" Color="#F5F6F8" />
-          <SolidColorBrush x:Key="Surface" Color="#FFFFFF" />
-          <SolidColorBrush x:Key="Line" Color="#E8EAEE" />
-          <SolidColorBrush x:Key="Text" Color="#1A1D23" />
-          <SolidColorBrush x:Key="Muted" Color="#6B7180" />
-          <SolidColorBrush x:Key="Hover" Color="#F3F5F8" />
-          <SolidColorBrush x:Key="Selected" Color="#EAEFFE" />
+          <!-- Warm beige paper instead of pure white: easier on the eyes. -->
+          <SolidColorBrush x:Key="Bg" Color="#EFEAE0" />
+          <SolidColorBrush x:Key="Surface" Color="#F8F5EE" />
+          <SolidColorBrush x:Key="Line" Color="#E2DBCD" />
+          <SolidColorBrush x:Key="Text" Color="#2B2620" />
+          <SolidColorBrush x:Key="Muted" Color="#7A7166" />
+          <SolidColorBrush x:Key="Hover" Color="#F0EADE" />
+          <SolidColorBrush x:Key="Selected" Color="#E4E2F0" />
           <SolidColorBrush x:Key="AccentText" Color="#3B5BDB" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
@@ -31,6 +32,7 @@
       <StreamGeometry x:Key="IconBell">M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z</StreamGeometry>
       <StreamGeometry x:Key="IconPlus">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
       <StreamGeometry x:Key="IconTheme">M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18V6c3.31 0 6 2.69 6 6s-2.69 6-6 6z</StreamGeometry>
+      <StreamGeometry x:Key="IconSettings">M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z</StreamGeometry>
       <StreamGeometry x:Key="IconWarning">M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z</StreamGeometry>
     </ResourceDictionary>
   </Application.Resources>
@@ -38,7 +40,7 @@
   <Application.Styles>
     <FluentTheme>
       <FluentTheme.Palettes>
-        <ColorPaletteResources x:Key="Light" Accent="#4C6EF5" RegionColor="#FFFFFF" />
+        <ColorPaletteResources x:Key="Light" Accent="#4C6EF5" RegionColor="#F8F5EE" />
         <ColorPaletteResources x:Key="Dark" Accent="#5C7CFA" RegionColor="#15171C" />
       </FluentTheme.Palettes>
     </FluentTheme>

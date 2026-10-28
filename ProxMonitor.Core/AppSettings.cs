@@ -13,6 +13,22 @@ public sealed class ServerConfig
     public string TokenId { get; set; } = "";
     public string? ProtectedSecret { get; set; }
     public string? PinnedCert { get; set; } // SHA-256 of a self-signed cert the user confirmed
+    public string? SshUser { get; set; }
+    public string? ProtectedSshPassword { get; set; }
+    public Dictionary<string, string> SshHostKeys { get; set; } = []; // host -> SHA-256 fingerprint the user confirmed
+}
+
+/// <summary>A small floating card over the table that shows chosen metrics of one resource.</summary>
+public sealed class WidgetConfig
+{
+    public string Key { get; set; } = ""; // resource key
+    public double X { get; set; }
+    public double Y { get; set; }
+    public bool Cpu { get; set; } = true;
+    public bool Ram { get; set; } = true;
+    public bool Disk { get; set; }
+    public bool Temp { get; set; } = true;
+    public bool Net { get; set; }
 }
 
 /// <summary>Everything the app remembers between runs, in %AppData%\ProxMonitor\settings.json.</summary>
@@ -30,6 +46,11 @@ public sealed class AppSettings
     public List<ServerConfig> Servers { get; set; } = [];
     public List<string> Tabs { get; set; } = [];
     public Dictionary<string, string> TabOf { get; set; } = []; // resource key -> tab name
+    public List<string> Sections { get; set; } = [];
+    public Dictionary<string, string> SectionOf { get; set; } = []; // resource key -> section name
+    public Thresholds Thresholds { get; set; } = new();
+    public Dictionary<string, Thresholds> ThresholdsOf { get; set; } = []; // resource key -> own danger levels
+    public List<WidgetConfig> Widgets { get; set; } = [];
 
     public static AppSettings Load(string? path = null)
     {

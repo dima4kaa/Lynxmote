@@ -27,5 +27,18 @@ public static class Converters
         _ => Accent,
     });
 
+    // Row tints: a light wash of the state colour, readable in both themes.
+    static readonly IBrush OkTint = new SolidColorBrush(Color.Parse("#1422C55E"));
+    static readonly IBrush DangerTint = new SolidColorBrush(Color.Parse("#24EF4444"));
+    static readonly IBrush OffTint = new SolidColorBrush(Color.Parse("#22F59E0B"));
+
+    public static readonly FuncValueConverter<Health, IBrush?> HealthTint = new(h => h switch
+    {
+        Health.Ok => OkTint,
+        Health.Danger => DangerTint,
+        Health.Off => OffTint,
+        _ => null,
+    });
+
     public static readonly FuncValueConverter<bool, double> StaleOpacity = new(stale => stale ? 0.45 : 1);
 }

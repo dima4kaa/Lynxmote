@@ -1,0 +1,129 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:ProxMonitor.App"
+        x:Class="ProxMonitor.App.TerminalWindow"
+        Icon="/Assets/app.ico"
+        Width="960" Height="640" MinWidth="640" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        RequestedThemeVariant="Dark"
+        Background="#0E1014">
+
+  <!-- Always dark, like a real console, whatever the app theme. -->
+  <Window.Styles>
+    <Style Selector=":is(TextBlock).mono">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBox.mono">
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button.chip">
+      <Setter Property="Padding" Value="10,4" />
+      <Setter Property="CornerRadius" Value="12" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="#1C2028" />
+      <Setter Property="Foreground" Value="#C9CED8" />
+      <Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Courier New" />
+    </Style>
+    <Style Selector="Border.block">
+      <Setter Property="Background" Value="#14171D" />
+      <Setter Property="BorderBrush" Value="#232832" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+    <Style Selector="TextBox.field">
+      <Setter Property="Width" Value="260" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel>
+    <!-- Header -->
+    <Border DockPanel.Dock="Top" Background="#14171D" BorderBrush="#232832" BorderThickness="0,0,0,1" Padding="16,10">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="chip" Content="Очистить  Ctrl+L" Click="Clear_Click" />
+        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+          <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#F59E0B" />
+          <TextBlock x:Name="TargetText" FontWeight="SemiBold" Foreground="#E6E8EC" />
+          <TextBlock x:Name="StatusText" Foreground="#8A90A0" FontSize="12" VerticalAlignment="Center" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- Quick commands -->
+    <ScrollViewer DockPanel.Dock="Top" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+      <ItemsControl x:Name="Chips" Margin="16,10">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <Button Classes="chip" Content="{Binding}" Click="Chip_Click" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <!-- Input -->
+    <Border DockPanel.Dock="Bottom" Background="#14171D" BorderBrush="#232832" BorderThickness="0,1,0,0" Padding="16,10">
+      <DockPanel>
+        <Button x:Name="StopButton" DockPanel.Dock="Right" Classes="chip" Content="Прервать  Ctrl+C" IsVisible="False" Click="Stop_Click" />
+        <TextBlock x:Name="PromptText" DockPanel.Dock="Left" Classes="mono" Foreground="#4ADE80" VerticalAlignment="Center" Margin="0,0,10,0" />
+        <TextBox x:Name="Input" Classes="mono" Background="Transparent" BorderThickness="0" Foreground="#E6E8EC"
+                 Watermark="Введите команду и нажмите Enter · ↑↓ история" KeyDown="Input_KeyDown" IsEnabled="False" />
+      </DockPanel>
+    </Border>
+
+    <Panel>
+      <!-- Output: one card per command -->
+      <ScrollViewer x:Name="Scroll" Padding="16,4,16,8">
+        <ItemsControl x:Name="Blocks">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:TerminalBlock">
+              <Border Classes="block">
+                <StackPanel Spacing="6">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" FontSize="11" VerticalAlignment="Center" Text="{Binding Footer}"
+                               Foreground="{Binding Failed, Converter={x:Static app:TerminalBlock.FooterBrush}}" />
+                    <TextBlock Classes="mono" Foreground="#91A7FF" TextWrapping="Wrap">
+                      <Run Text="$ " Foreground="#4ADE80" /><Run Text="{Binding Command}" />
+                    </TextBlock>
+                  </DockPanel>
+                  <SelectableTextBlock Classes="mono" Foreground="#C9CED8" TextWrapping="Wrap" Text="{Binding Output}"
+                                       IsVisible="{Binding Output, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <!-- SSH login, shown until connected -->
+      <Border x:Name="LoginPanel" IsVisible="False" Background="#0E1014">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="300">
+          <TextBlock Text="Вход по SSH" FontSize="18" FontWeight="SemiBold" Foreground="#E6E8EC" />
+          <TextBlock x:Name="LoginHint" Foreground="#8A90A0" FontSize="12" TextWrapping="Wrap" />
+          <TextBox x:Name="UserBox" Text="root" Watermark="Пользователь" />
+          <TextBox x:Name="PasswordBox" PasswordChar="•" Watermark="Пароль" KeyDown="Password_KeyDown" />
+          <Border x:Name="HostKeyPanel" IsVisible="False" Background="#14171D" CornerRadius="8" Padding="10">
+            <StackPanel Spacing="6">
+              <TextBlock FontSize="12" Foreground="#C9CED8" TextWrapping="Wrap"
+                         Text="Первое подключение к этому серверу. Сверьте отпечаток ключа (на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub):" />
+              <SelectableTextBlock x:Name="HostKeyText" Classes="mono" FontSize="11" Foreground="#E6E8EC" TextWrapping="Wrap" />
+              <CheckBox x:Name="TrustBox" Content="Отпечаток совпадает, доверять" FontSize="12" />
+            </StackPanel>
+          </Border>
+          <TextBlock x:Name="LoginError" Foreground="#F87171" FontSize="12" TextWrapping="Wrap" />
+          <Button x:Name="LoginButton" Classes="accent" Content="Подключиться" HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Center" Padding="0,8" Click="Login_Click" />
+          <TextBlock Foreground="#8A90A0" FontSize="11" TextWrapping="Wrap"
+                     Text="Пароль хранится зашифрованным для вашей учётной записи Windows." />
+        </StackPanel>
+      </Border>
+    </Panel>
+  </DockPanel>
+</Window>

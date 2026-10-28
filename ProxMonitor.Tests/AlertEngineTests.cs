@@ -65,12 +65,12 @@ public class AlertEngineTests
 
     [Fact]
     public void First_snapshot_is_silent() =>
-        Assert.Empty(new AlertEngine(new()).Observe([Snap(running: false)], At(0)));
+        Assert.Empty(new AlertEngine(_ => new()).Observe([Snap(running: false)], At(0)));
 
     [Fact]
     public void Stop_is_critical_and_immediate()
     {
-        var engine = new AlertEngine(new());
+        var engine = new AlertEngine(_ => new());
         engine.Observe([Snap()], At(0));
         var events = engine.Observe([Snap(running: false)], At(0.5));
         Assert.Equal(Severity.Critical, Assert.Single(events).Severity);
@@ -79,7 +79,7 @@ public class AlertEngineTests
     [Fact]
     public void Overheat_needs_two_fresh_updates()
     {
-        var engine = new AlertEngine(new());
+        var engine = new AlertEngine(_ => new());
         engine.Observe([Snap()], At(0));
         var hot = Snap(temp: 85, uptime: 1);
         Assert.Empty(engine.Observe([hot], At(2)));
@@ -88,9 +88,17 @@ public class AlertEngineTests
     }
 
     [Fact]
+    public void Per_resource_thresholds_apply()
+    {
+        var engine = new AlertEngine(id => id == "qemu/100" ? new Thresholds(CpuPct: 50) : new());
+        engine.Observe([Snap(cpu: 0.6)], At(0));
+        Assert.Contains(engine.Observe([Snap(cpu: 0.61)], At(1)), e => e.Message.Contains("порог 50%"));
+    }
+
+    [Fact]
     public void Missing_resource_is_reported()
     {
-        var engine = new AlertEngine(new());
+        var engine = new AlertEngine(_ => new());
         engine.Observe([Snap()], At(0));
         Assert.Contains(engine.Observe([], At(1)), e => e.Message == "Пропал из кластера");
     }

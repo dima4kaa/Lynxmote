@@ -16,22 +16,44 @@ public partial class SheetTab(string name, bool isAll = false) : ObservableObjec
 }
 
 /// <summary>A connected server (or the demo) with its own alert state.</summary>
-public partial class SourceState(IResourceSource source, Thresholds thresholds) : ObservableObject
+public partial class SourceState(IResourceSource source, Func<string, Thresholds> thresholdsFor) : ObservableObject
 {
     public IResourceSource Source { get; } = source;
-    public AlertEngine Engine { get; } = new(thresholds);
+    public AlertEngine Engine { get; } = new(id => thresholdsFor(source.Key + ":" + id));
     public string Title => Source.Title;
     public DateTime LastPoll { get; set; }
     public bool Busy { get; set; }
     [ObservableProperty] private bool _online = true;
 }
 
+/// <summary>A floating card over the table; Row is null until its resource has loaded.</summary>
+public partial class WidgetVm(WidgetConfig config) : ObservableObject
+{
+    public WidgetConfig Config { get; } = config;
+    [ObservableProperty] private ResourceRow? _row;
+    [ObservableProperty] private double _x = config.X;
+    [ObservableProperty] private double _y = config.Y;
+    [ObservableProperty] private bool _cpu = config.Cpu;
+    [ObservableProperty] private bool _ram = config.Ram;
+    [ObservableProperty] private bool _disk = config.Disk;
+    [ObservableProperty] private bool _temp = config.Temp;
+    [ObservableProperty] private bool _net = config.Net;
+
+    partial void OnXChanged(double value) => Config.X = value;
+    partial void OnYChanged(double value) => Config.Y = value;
+    partial void OnCpuChanged(bool value) => Config.Cpu = value;
+    partial void OnRamChanged(bool value) => Config.Ram = value;
+    partial void OnDiskChanged(bool value) => Config.Disk = value;
+    partial void OnTempChanged(bool value) => Config.Temp = value;
+    partial void OnNetChanged(bool value) => Config.Net = value;
+}
+
 public partial class MainViewModel : ObservableObject
 {
     const int MaxEvents = 300;
+    public const string NoSection = "Без раздела";
 
     readonly AppSettings _settings = AppSettings.Load();
-    readonly Thresholds _thresholds = new();
     readonly Dictionary<string, ResourceRow> _rows = [];
 
     public MainViewModel()
@@ -40,10 +62,12 @@ public partial class MainViewModel : ObservableObject
         Tabs.Add(new SheetTab("Все", isAll: true));
         foreach (var name in _settings.Tabs) Tabs.Add(new SheetTab(name));
         _selectedTab = Tabs[0];
+        foreach (var w in _settings.Widgets) Widgets.Add(new WidgetVm(w));
+        UpdateGrouping();
 
-        if (_settings.Demo) Sources.Add(new SourceState(new DemoSource(), _thresholds));
+        if (_settings.Demo) Sources.Add(NewSource(new DemoSource()));
         foreach (var cfg in _settings.Servers)
-            Sources.Add(new SourceState(new ProxmoxSource(cfg, Secrets.Unprotect(cfg.ProtectedSecret) ?? ""), _thresholds));
+            Sources.Add(NewSource(new ProxmoxSource(cfg, Secrets.Unprotect(cfg.ProtectedSecret) ?? "")));
         Sources.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSources));
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
@@ -56,6 +80,8 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<AlertEvent> Events { get; } = [];
     public ObservableCollection<SheetTab> Tabs { get; } = [];
     public ObservableCollection<SourceState> Sources { get; } = [];
+    public ObservableCollection<WidgetVm> Widgets { get; } = [];
+    public IReadOnlyList<string> Sections => _settings.Sections;
     public bool HasSources => Sources.Count > 0;
     public string Theme => _settings.Theme;
 
@@ -78,6 +104,8 @@ public partial class MainViewModel : ObservableObject
     partial void OnOnlyProblemsChanged(bool value) => View.Refresh();
     partial void OnSelectedTabChanged(SheetTab? value) => View.Refresh();
 
+    SourceState NewSource(IResourceSource source) => new(source, ThresholdsFor);
+
     // ---- servers ----
 
     public void EnableDemo()
@@ -85,7 +113,7 @@ public partial class MainViewModel : ObservableObject
         if (Sources.Any(s => s.Source is DemoSource)) return;
         _settings.Demo = true;
         _settings.Save();
-        Sources.Insert(0, new SourceState(new DemoSource(), _thresholds));
+        Sources.Insert(0, NewSource(new DemoSource()));
     }
 
     public void AddServer(ServerConfig cfg, string secret)
@@ -93,7 +121,7 @@ public partial class MainViewModel : ObservableObject
         cfg.ProtectedSecret = Secrets.Protect(secret);
         _settings.Servers.Add(cfg);
         _settings.Save();
-        Sources.Add(new SourceState(new ProxmoxSource(cfg, secret), _thresholds));
+        Sources.Add(NewSource(new ProxmoxSource(cfg, secret)));
     }
 
     public void RemoveSource(SourceState s)
@@ -107,9 +135,38 @@ public partial class MainViewModel : ObservableObject
         UpdateSummary();
     }
 
+    public IResourceSource? SourceOf(ResourceRow row) =>
+        Sources.FirstOrDefault(s => s.Source.Key == row.SourceKey)?.Source;
+
+    public ServerConfig? ConfigOf(ResourceRow row) => _settings.Servers.FirstOrDefault(c => c.Key == row.SourceKey);
+
+    public void SaveSettings() => _settings.Save();
+
     public void SaveTheme(string theme)
     {
         _settings.Theme = theme;
+        _settings.Save();
+    }
+
+    // ---- thresholds ----
+
+    public Thresholds GlobalThresholds => _settings.Thresholds;
+
+    public Thresholds ThresholdsFor(string key) => _settings.ThresholdsOf.GetValueOrDefault(key) ?? _settings.Thresholds;
+
+    public bool HasOwnThresholds(string key) => _settings.ThresholdsOf.ContainsKey(key);
+
+    public void SetGlobalThresholds(Thresholds t)
+    {
+        _settings.Thresholds = t;
+        _settings.Save();
+    }
+
+    /// <summary>Own danger levels for one resource; null goes back to the global ones.</summary>
+    public void SetThresholds(string key, Thresholds? t)
+    {
+        if (t is null) _settings.ThresholdsOf.Remove(key);
+        else _settings.ThresholdsOf[key] = t;
         _settings.Save();
     }
 
@@ -133,8 +190,7 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab == tab) SelectedTab = Tabs[0];
         Tabs.Remove(tab);
         _settings.Tabs.Remove(tab.Name);
-        foreach (var key in _settings.TabOf.Where(p => p.Value == tab.Name).Select(p => p.Key).ToList())
-            _settings.TabOf.Remove(key);
+        RemoveAssignments(_settings.TabOf, tab.Name);
         _settings.Save();
         UpdateSummary();
     }
@@ -150,16 +206,73 @@ public partial class MainViewModel : ObservableObject
         UpdateSummary();
     }
 
+    // ---- sections: groups inside the table ----
+
+    /// <summary>Moves rows into a section, creating it if new; null takes them out of any section.</summary>
+    public void MoveToSection(IEnumerable<ResourceRow> rows, string? section)
+    {
+        section = section?.Trim();
+        if (section is { Length: > 0 } && !_settings.Sections.Contains(section)) _settings.Sections.Add(section);
+        foreach (var r in rows)
+        {
+            if (string.IsNullOrEmpty(section)) _settings.SectionOf.Remove(r.Key);
+            else _settings.SectionOf[r.Key] = section;
+            r.Section = SectionOf(r.Key);
+        }
+        // A section nobody is in any more disappears.
+        _settings.Sections.RemoveAll(s => !_settings.SectionOf.ContainsValue(s));
+        _settings.Save();
+        UpdateGrouping();
+    }
+
+    string SectionOf(string key) => _settings.SectionOf.GetValueOrDefault(key) ?? NoSection;
+
+    void UpdateGrouping()
+    {
+        // No sections: no group headers at all, the table stays flat.
+        var want = _settings.Sections.Count > 0;
+        if (want == View.GroupDescriptions.Count > 0)
+        {
+            View.Refresh();
+            return;
+        }
+        if (want) View.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(ResourceRow.Section)));
+        else View.GroupDescriptions.Clear();
+    }
+
+    static void RemoveAssignments(Dictionary<string, string> map, string name)
+    {
+        foreach (var key in map.Where(p => p.Value == name).Select(p => p.Key).ToList()) map.Remove(key);
+    }
+
+    // ---- widgets ----
+
+    public void AddWidget(ResourceRow row)
+    {
+        var offset = 24 + 28 * (Widgets.Count % 8);
+        var cfg = new WidgetConfig { Key = row.Key, X = offset, Y = offset };
+        _settings.Widgets.Add(cfg);
+        _settings.Save();
+        Widgets.Add(new WidgetVm(cfg) { Row = row });
+    }
+
+    public void RemoveWidget(WidgetVm w)
+    {
+        Widgets.Remove(w);
+        _settings.Widgets.Remove(w.Config);
+        _settings.Save();
+    }
+
     // ---- actions ----
 
     public async Task RunAsync(PowerAction action, IReadOnlyList<ResourceRow> rows)
     {
         foreach (var r in rows)
         {
-            if (Sources.FirstOrDefault(s => s.Source.Key == r.SourceKey) is not { } s) continue;
+            if (SourceOf(r) is not { } source) continue;
             try
             {
-                Push(new AlertEvent(DateTime.Now, Severity.Info, r.Name, await s.Source.ApplyAsync(r.LocalId, action, default), r.Key));
+                Push(new AlertEvent(DateTime.Now, Severity.Info, r.Name, await source.ApplyAsync(r.LocalId, action, default), r.Key));
             }
             catch (Exception e)
             {
@@ -223,14 +336,15 @@ public partial class MainViewModel : ObservableObject
             seen.Add(key);
             if (!_rows.TryGetValue(key, out var row))
             {
-                row = new ResourceRow(key, s.Source.Key, snap.Id);
+                row = new ResourceRow(key, s.Source.Key, snap.Id) { Section = SectionOf(key) };
                 _rows[key] = row;
                 Rows.Add(row);
             }
-            row.Update(snap, _thresholds);
+            row.Update(snap, ThresholdsFor(key));
         }
         foreach (var gone in Rows.Where(r => r.SourceKey == s.Source.Key && !seen.Contains(r.Key)).ToList())
             RemoveRow(gone);
+        foreach (var w in Widgets) w.Row = _rows.GetValueOrDefault(w.Config.Key);
         if (OnlyProblems) View.Refresh(); // the problem set changes every poll
     }
 
@@ -238,6 +352,7 @@ public partial class MainViewModel : ObservableObject
     {
         Rows.Remove(row);
         _rows.Remove(row.Key);
+        foreach (var w in Widgets.Where(w => w.Row == row)) w.Row = null;
     }
 
     void UpdateSummary()

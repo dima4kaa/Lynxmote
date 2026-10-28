@@ -2,10 +2,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:app="using:ProxMonitor.App"
         xmlns:core="using:ProxMonitor.Core"
-        x:Class="ProxMonitor.App.DetailsWindow"
+        x:Class="ProxMonitor.App.PropertiesWindow"
         x:DataType="app:ResourceRow"
-        Title="{Binding Name}" Icon="/Assets/app.ico"
-        Width="920" Height="720" MinWidth="720" MinHeight="520"
+        Title="{Binding Name, StringFormat='Свойства: {0}'}" Icon="/Assets/app.ico"
+        Width="920" Height="860" MinWidth="720" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Bg}">
 
@@ -30,6 +30,8 @@
     <StackPanel Margin="24" Spacing="16">
       <!-- Header -->
       <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="accent" Click="OpenTerminal" VerticalAlignment="Center"
+                Margin="20,0,0,0" Padding="14,7" CornerRadius="8" Content="Терминал" />
         <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
           <TextBlock Classes="label" Text="Аптайм" HorizontalAlignment="Right" />
           <TextBlock Text="{Binding UptimeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
@@ -116,6 +118,33 @@
             <TextBlock Text="{Binding Node}" FontWeight="SemiBold" />
           </StackPanel>
         </UniformGrid>
+      </Border>
+
+      <!-- Own danger levels -->
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <DockPanel>
+            <CheckBox x:Name="OwnBox" DockPanel.Dock="Right" Content="Свои значения" IsCheckedChanged="Thresholds_Changed" />
+            <StackPanel Spacing="2">
+              <TextBlock Text="Пороги предупреждений" FontWeight="SemiBold" />
+              <TextBlock x:Name="ThresholdsHint" Classes="muted" FontSize="12" />
+            </StackPanel>
+          </DockPanel>
+          <UniformGrid x:Name="ThresholdsBoxes" Columns="3">
+            <StackPanel Spacing="4" Margin="0,0,12,0">
+              <TextBlock Classes="label" Text="CPU, %" />
+              <NumericUpDown x:Name="CpuBox" Minimum="1" Maximum="100" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
+            </StackPanel>
+            <StackPanel Spacing="4" Margin="0,0,12,0">
+              <TextBlock Classes="label" Text="Температура, °C" />
+              <NumericUpDown x:Name="TempBox" Minimum="30" Maximum="120" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
+            </StackPanel>
+            <StackPanel Spacing="4">
+              <TextBlock Classes="label" Text="Диск, %" />
+              <NumericUpDown x:Name="DiskBox" Minimum="1" Maximum="100" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
+            </StackPanel>
+          </UniformGrid>
+        </StackPanel>
       </Border>
 
       <!-- Events -->

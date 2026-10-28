@@ -96,6 +96,39 @@
     <Style Selector="ListBox.log ListBoxItem">
       <Setter Property="Padding" Value="16,8" />
     </Style>
+
+    <!-- sections: group headers inside the table -->
+    <Style Selector="DataGridRowGroupHeader">
+      <Setter Property="IsPropertyNameVisible" Value="False" />
+      <Setter Property="IsItemCountVisible" Value="False" />
+      <Setter Property="Background" Value="{DynamicResource Bg}" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="30" />
+    </Style>
+
+    <!-- widgets -->
+    <Style Selector="Border.widget">
+      <Setter Property="Width" Value="230" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="BoxShadow" Value="0 6 24 0 #33000000" />
+      <Setter Property="Cursor" Value="SizeAll" />
+    </Style>
+    <Style Selector="Border.widget TextBlock.k">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.widget TextBlock.v">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
   </Window.Styles>
 
   <!-- A maximized window with an extended client area spills past the screen edges by OffScreenMargin. -->
@@ -131,6 +164,9 @@
           <ToggleButton Classes="icon" IsChecked="{Binding IsLogOpen}" ToolTip.Tip="Журнал событий">
             <PathIcon Data="{StaticResource IconBell}" Width="15" Height="15" />
           </ToggleButton>
+          <Button Classes="icon" Click="OpenSettings" ToolTip.Tip="Настройки предупреждений">
+            <PathIcon Data="{StaticResource IconSettings}" Width="15" Height="15" />
+          </Button>
           <Button Classes="icon" Click="ToggleTheme" ToolTip.Tip="Светлая / тёмная тема">
             <PathIcon Data="{StaticResource IconTheme}" Width="15" Height="15" />
           </Button>
@@ -263,18 +299,22 @@
           <DataGrid.Styles>
             <Style Selector="DataGridRow" x:DataType="app:ResourceRow">
               <Setter Property="Opacity" Value="{Binding Stale, Converter={x:Static app:Converters.StaleOpacity}}" />
+              <Setter Property="Background" Value="{Binding Health, Converter={x:Static app:Converters.HealthTint}}" />
             </Style>
           </DataGrid.Styles>
           <DataGrid.ContextMenu>
             <ContextMenu Opening="RowMenu_Opening">
-              <MenuItem Header="Подробная статистика" Click="Details_Click" FontWeight="SemiBold" />
-              <Separator x:Name="PowerSeparator" />
               <MenuItem x:Name="StartItem" Header="Запустить" Click="Start_Click" />
               <MenuItem x:Name="RebootItem" Header="Перезагрузить…" Click="Reboot_Click" />
               <MenuItem x:Name="StopItem" Header="Остановить…" Click="Stop_Click" />
               <MenuItem x:Name="SnapshotItem" Header="Создать снапшот" Click="Snapshot_Click" />
-              <Separator />
+              <Separator x:Name="PowerSeparator" />
+              <MenuItem x:Name="SectionMenu" Header="Переместить в раздел" />
               <MenuItem x:Name="MoveMenu" Header="Переместить во вкладку" />
+              <MenuItem Header="Добавить виджет" Click="AddWidget_Click" />
+              <Separator />
+              <!-- Last, like Properties in Windows menus. -->
+              <MenuItem Header="Свойства" Click="Details_Click" FontWeight="SemiBold" />
             </ContextMenu>
           </DataGrid.ContextMenu>
 
@@ -385,6 +425,64 @@
           </DataGrid.Columns>
         </DataGrid>
       </SplitView>
+
+      <!-- Widgets float over the table; the empty canvas lets clicks through. -->
+      <ItemsControl x:Name="WidgetLayer" ItemsSource="{Binding Widgets}" ClipToBounds="True">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Canvas />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.Styles>
+          <Style Selector="ItemsControl#WidgetLayer > ContentPresenter" x:DataType="app:WidgetVm">
+            <Setter Property="Canvas.Left" Value="{Binding X}" />
+            <Setter Property="Canvas.Top" Value="{Binding Y}" />
+          </Style>
+        </ItemsControl.Styles>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="app:WidgetVm">
+            <Border Classes="widget" ToolTip.Tip="Перетащите за любое место. ПКМ — что показывать"
+                    PointerPressed="Widget_PointerPressed" PointerMoved="Widget_PointerMoved"
+                    PointerReleased="Widget_PointerReleased" ContextRequested="Widget_ContextRequested">
+              <StackPanel Spacing="7">
+                <DockPanel>
+                  <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                           Fill="{Binding Row.Running, Converter={x:Static app:Converters.StatusBrush}, FallbackValue=Gray}" />
+                  <TextBlock Text="{Binding Row.Name, FallbackValue='Нет данных'}" FontWeight="SemiBold"
+                             TextTrimming="CharacterEllipsis" />
+                </DockPanel>
+                <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Cpu}">
+                  <TextBlock Classes="k" Text="CPU" />
+                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.Cpu, StringFormat='{}{0:0}%'}" />
+                  <app:Sparkline Grid.Column="2" Height="16" Values="{Binding Row.CpuRecent}" Capacity="60"
+                                 Stroke="{Binding Row.Cpu, Converter={x:Static app:Converters.LoadBrush}}" />
+                </Grid>
+                <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Ram}">
+                  <TextBlock Classes="k" Text="RAM" />
+                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.MemPct, StringFormat='{}{0:0}%'}" />
+                  <ProgressBar Grid.Column="2" Classes="thin" Value="{Binding Row.MemPct}"
+                               Foreground="{Binding Row.MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                </Grid>
+                <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Disk}">
+                  <TextBlock Classes="k" Text="Диск" />
+                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.DiskPct, StringFormat='{}{0:0}%'}" />
+                  <ProgressBar Grid.Column="2" Classes="thin" Value="{Binding Row.DiskPct}"
+                               Foreground="{Binding Row.DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                </Grid>
+                <Grid ColumnDefinitions="52,*" IsVisible="{Binding Temp}">
+                  <TextBlock Classes="k" Text="Темп." />
+                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.TempText}"
+                             Foreground="{Binding Row.Temp, Converter={x:Static app:Converters.TempBrush}}" />
+                </Grid>
+                <Grid ColumnDefinitions="52,*" IsVisible="{Binding Net}">
+                  <TextBlock Classes="k" Text="Сеть" />
+                  <TextBlock Grid.Column="1" Classes="v" FontWeight="Normal" Text="{Binding Row.NetText}" />
+                </Grid>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
 
       <!-- Empty state -->
       <StackPanel IsVisible="{Binding !HasSources}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">

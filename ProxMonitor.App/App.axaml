@@ -1,0 +1,74 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ProxMonitor.App.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Bg" Color="#F5F6F8" />
+          <SolidColorBrush x:Key="Surface" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Line" Color="#E8EAEE" />
+          <SolidColorBrush x:Key="Text" Color="#1A1D23" />
+          <SolidColorBrush x:Key="Muted" Color="#6B7180" />
+          <SolidColorBrush x:Key="Hover" Color="#F3F5F8" />
+          <SolidColorBrush x:Key="Selected" Color="#EAEFFE" />
+          <SolidColorBrush x:Key="AccentText" Color="#3B5BDB" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Bg" Color="#0E0F13" />
+          <SolidColorBrush x:Key="Surface" Color="#15171C" />
+          <SolidColorBrush x:Key="Line" Color="#24272E" />
+          <SolidColorBrush x:Key="Text" Color="#E6E8EC" />
+          <SolidColorBrush x:Key="Muted" Color="#8A90A0" />
+          <SolidColorBrush x:Key="Hover" Color="#1B1E24" />
+          <SolidColorBrush x:Key="Selected" Color="#1D2742" />
+          <SolidColorBrush x:Key="AccentText" Color="#91A7FF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <StreamGeometry x:Key="IconSearch">M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z</StreamGeometry>
+      <StreamGeometry x:Key="IconBell">M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z</StreamGeometry>
+      <StreamGeometry x:Key="IconPlus">M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z</StreamGeometry>
+      <StreamGeometry x:Key="IconTheme">M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18V6c3.31 0 6 2.69 6 6s-2.69 6-6 6z</StreamGeometry>
+      <StreamGeometry x:Key="IconWarning">M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z</StreamGeometry>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#4C6EF5" RegionColor="#FFFFFF" />
+        <ColorPaletteResources x:Key="Dark" Accent="#5C7CFA" RegionColor="#15171C" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource Surface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="16" />
+    </Style>
+    <Style Selector="Button.icon, ToggleButton.icon">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,6" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="ProgressBar.thin">
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="MinHeight" Value="4" />
+      <Setter Property="Height" Value="4" />
+      <Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Maximum" Value="100" />
+      <Setter Property="Background" Value="{DynamicResource Line}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </Application.Styles>
+</Application>

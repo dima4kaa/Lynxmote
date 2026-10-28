@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ProxMonitor.App/ProxMonitor.App.csproj" />
+  <Project Path="ProxMonitor.Core/ProxMonitor.Core.csproj" />
+  <Project Path="ProxMonitor.Tests/ProxMonitor.Tests.csproj" />
+</Solution>

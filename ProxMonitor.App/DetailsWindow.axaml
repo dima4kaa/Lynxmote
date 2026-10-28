@@ -1,0 +1,144 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:ProxMonitor.App"
+        xmlns:core="using:ProxMonitor.Core"
+        x:Class="ProxMonitor.App.DetailsWindow"
+        x:DataType="app:ResourceRow"
+        Title="{Binding Name}"
+        Width="920" Height="720" MinWidth="720" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Bg}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.value">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="app|Sparkline.chart">
+      <Setter Property="Height" Value="120" />
+      <Setter Property="ShowGrid" Value="True" />
+      <Setter Property="Fill" Value="True" />
+      <Setter Property="Margin" Value="0,12,0,0" />
+    </Style>
+  </Window.Styles>
+
+  <ScrollViewer>
+    <StackPanel Margin="24" Spacing="16">
+      <!-- Header -->
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+          <TextBlock Classes="label" Text="Аптайм" HorizontalAlignment="Right" />
+          <TextBlock Text="{Binding UptimeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                     Fill="{Binding Running, Converter={x:Static app:Converters.StatusBrush}}" />
+            <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
+          </StackPanel>
+          <TextBlock Classes="muted">
+            <Run Text="{Binding KindText}" /><Run Text=" · нода " /><Run Text="{Binding Node}" /><Run Text=" · " /><Run Text="{Binding StatusText}" />
+          </TextBlock>
+        </StackPanel>
+      </DockPanel>
+
+      <!-- Charts -->
+      <Grid ColumnDefinitions="*,16,*" RowDefinitions="Auto,16,Auto">
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="CPU" />
+            <TextBlock Classes="value" Text="{Binding Cpu, StringFormat='{}{0:0}%'}" />
+            <app:Sparkline Classes="chart" Values="{Binding CpuHistory}" Maximum="100" Stroke="#5C7CFA" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Column="2" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Память" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Classes="value" Text="{Binding MemPct, StringFormat='{}{0:0}%'}" />
+              <TextBlock Classes="muted" Text="{Binding MemText}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
+            </StackPanel>
+            <app:Sparkline Classes="chart" Values="{Binding MemHistory}" Maximum="100" Stroke="#A855F7" />
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Сеть: вход (синий) и выход (зелёный)" />
+            <TextBlock Classes="value" Text="{Binding NetText}" />
+            <Panel>
+              <app:Sparkline Classes="chart" Values="{Binding NetInHistory}" Maximum="{Binding NetScale}" Stroke="#5C7CFA" />
+              <app:Sparkline Classes="chart" Values="{Binding NetOutHistory}" Maximum="{Binding NetScale}" Stroke="#22C55E" Fill="False" ShowGrid="False" />
+            </Panel>
+          </StackPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="2" Classes="card">
+          <StackPanel>
+            <TextBlock Classes="label" Text="Температура" />
+            <TextBlock Classes="value" Text="{Binding TempText}"
+                       Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
+            <Panel>
+              <app:Sparkline Classes="chart" Values="{Binding TempHistory}" Maximum="100" Stroke="#F59E0B" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         IsVisible="{Binding Temp, Converter={x:Static ObjectConverters.IsNull}}"
+                         Text="Датчиков нет: температура есть только у нод и требует SSH и lm-sensors" />
+            </Panel>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- Facts -->
+      <Border Classes="card">
+        <UniformGrid Columns="4">
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Диск" />
+            <TextBlock Text="{Binding DiskText}" FontWeight="SemiBold" />
+            <ProgressBar Classes="thin" Value="{Binding DiskPct}" Margin="0,6,24,0"
+                         Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
+          </StackPanel>
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Подключения" />
+            <TextBlock Text="{Binding ConnectionsText}" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="ID в Proxmox" />
+            <TextBlock Text="{Binding LocalId}" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="Нода" />
+            <TextBlock Text="{Binding Node}" FontWeight="SemiBold" />
+          </StackPanel>
+        </UniformGrid>
+      </Border>
+
+      <!-- Events -->
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <TextBlock Text="События" FontWeight="SemiBold" />
+          <TextBlock x:Name="NoEvents" Classes="muted" FontSize="12" Text="Пока ничего не происходило" />
+          <ItemsControl x:Name="EventsList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="core:AlertEvent">
+                <DockPanel Margin="0,4">
+                  <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,10,0" VerticalAlignment="Center"
+                           Fill="{Binding Severity, Converter={x:Static app:Converters.SeverityBrush}}" />
+                  <TextBlock DockPanel.Dock="Left" Classes="muted" FontSize="12" Width="70" VerticalAlignment="Center"
+                             Text="{Binding Time, StringFormat='{}{0:HH:mm:ss}'}" />
+                  <TextBlock Text="{Binding Message}" FontSize="13" TextWrapping="Wrap" />
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Classes="muted" FontSize="11" Text="Графики показывают историю с момента запуска приложения, до 10 минут." />
+    </StackPanel>
+  </ScrollViewer>
+</Window>

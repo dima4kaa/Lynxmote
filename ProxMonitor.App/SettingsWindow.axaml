@@ -19,7 +19,18 @@
       <NumericUpDown x:Name="DiskBox" Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="100" Increment="5" FormatString="0" />
     </Grid>
 
-    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+    <StackPanel Spacing="8" Margin="0,8,0,0">
+      <TextBlock Text="Список серверов" FontSize="15" FontWeight="SemiBold" />
+      <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                 Text="Файл с адресами и Token ID, чтобы перенести серверы на другой компьютер. Секреты в файл не попадают: при импорте их нужно ввести заново." />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Content="Экспорт в файл…" Click="Export_Click" Padding="12,6" />
+        <Button Content="Импорт из файла…" Click="Import_Click" Padding="12,6" />
+      </StackPanel>
+      <TextBlock x:Name="ListStatus" FontSize="12" TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
       <Button Content="Отмена" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
       <Button Classes="accent" Content="Сохранить" Click="Save_Click" Padding="16,6" IsDefault="True" />
     </StackPanel>

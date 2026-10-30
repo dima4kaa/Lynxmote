@@ -108,6 +108,31 @@
       <Setter Property="MinHeight" Value="30" />
     </Style>
 
+    <!-- node cards -->
+    <Style Selector="Border.node">
+      <Setter Property="Width" Value="250" />
+      <Setter Property="Padding" Value="12,10" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Background" Value="{DynamicResource Surface}" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Border.node:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Hover}" />
+    </Style>
+
+    <Style Selector="Border.pill">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="8,2" />
+    </Style>
+
+    <Style Selector="Button.inspector">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
     <!-- widgets -->
     <Style Selector="Border.widget">
       <Setter Property="Width" Value="230" />
@@ -119,12 +144,13 @@
       <Setter Property="BoxShadow" Value="0 6 24 0 #33000000" />
       <Setter Property="Cursor" Value="SizeAll" />
     </Style>
-    <Style Selector="Border.widget TextBlock.k">
+    <!-- label / value pairs in widgets, node cards and the inspector -->
+    <Style Selector="TextBlock.k">
       <Setter Property="Foreground" Value="{DynamicResource Muted}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="Border.widget TextBlock.v">
+    <Style Selector="TextBlock.v">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -146,8 +172,8 @@
           <TextBlock Text="ProxMonitor" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
         </StackPanel>
 
-        <TextBox DockPanel.Dock="Left" Classes="search" Width="280" Margin="28,0,0,0" VerticalAlignment="Center"
-                 Watermark="Поиск по имени или ноде" Text="{Binding Search}">
+        <TextBox x:Name="SearchBox" DockPanel.Dock="Left" Classes="search" Width="280" Margin="28,0,0,0" VerticalAlignment="Center"
+                 Watermark="Поиск по имени или ноде  (Ctrl+F)" Text="{Binding Search}" KeyDown="Search_KeyDown">
           <TextBox.InnerLeftContent>
             <PathIcon Data="{StaticResource IconSearch}" Width="14" Height="14" Margin="10,0,4,0"
                       Foreground="{DynamicResource Muted}" />
@@ -160,6 +186,9 @@
               <PathIcon Data="{StaticResource IconWarning}" Width="14" Height="14" Foreground="#F59E0B" />
               <TextBlock Text="{Binding ProblemsCount}" FontSize="13" VerticalAlignment="Center" />
             </StackPanel>
+          </ToggleButton>
+          <ToggleButton Classes="icon" IsChecked="{Binding InspectorOpen}" ToolTip.Tip="Инспектор  (Ctrl+I)">
+            <PathIcon Data="{StaticResource IconPanel}" Width="15" Height="15" />
           </ToggleButton>
           <ToggleButton Classes="icon" IsChecked="{Binding IsLogOpen}" ToolTip.Tip="Журнал событий">
             <PathIcon Data="{StaticResource IconBell}" Width="15" Height="15" />
@@ -257,6 +286,50 @@
       </DockPanel>
     </Border>
 
+    <!-- Nodes: physical hosts as cards; click one to see only its guests -->
+    <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" IsVisible="{Binding HasSources}">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Nodes}" Margin="12,10">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="10" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:ResourceRow">
+              <Border Classes="node" BorderBrush="{Binding IsFilterActive, Converter={x:Static app:Converters.FilterBorder}}"
+                      Opacity="{Binding Stale, Converter={x:Static app:Converters.StaleOpacity}}"
+                      PointerPressed="Node_PointerPressed" ContextRequested="Node_ContextRequested">
+                <StackPanel Spacing="8">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="11" VerticalAlignment="Center" Text="{Binding GuestsText}" />
+                    <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                             Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                  </DockPanel>
+                  <Grid ColumnDefinitions="40,*,64" RowDefinitions="20,20">
+                    <TextBlock Classes="k" Text="CPU" />
+                    <app:Sparkline Grid.Column="1" Height="16" Values="{Binding CpuRecent}" Capacity="60"
+                                   Stroke="{Binding Cpu, Converter={x:Static app:Converters.LoadBrush}}" />
+                    <TextBlock Grid.Column="2" Classes="v" Text="{Binding Cpu, StringFormat='{}{0:0}%'}" />
+                    <TextBlock Grid.Row="1" Classes="k" Text="RAM" />
+                    <ProgressBar Grid.Row="1" Grid.Column="1" Classes="thin" Value="{Binding MemPct}"
+                                 Foreground="{Binding MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Classes="v" Text="{Binding MemPct, StringFormat='{}{0:0}%'}" />
+                  </Grid>
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="11" Text="{Binding UptimeText}" />
+                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding TempText}"
+                               Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
+                  </DockPanel>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Border>
+
     <Panel>
       <SplitView IsPaneOpen="{Binding IsLogOpen}" PanePlacement="Right" DisplayMode="Inline"
                  OpenPaneLength="300" PaneBackground="{DynamicResource Surface}">
@@ -292,11 +365,96 @@
           </Border>
         </SplitView.Pane>
 
+        <DockPanel>
+        <!-- Inspector: the selected VM or node and what can be done with it -->
+        <Border DockPanel.Dock="Right" Width="300" IsVisible="{Binding InspectorOpen}"
+                Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1,0,0,0">
+          <Panel>
+            <StackPanel IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}"
+                        VerticalAlignment="Center" Margin="32" Spacing="6">
+              <TextBlock Text="Ничего не выбрано" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                         Text="Выберите VM в таблице или ноду сверху, чтобы увидеть её состояние и действия" />
+            </StackPanel>
+            <ContentControl Content="{Binding Selected}">
+              <ContentControl.ContentTemplate>
+                <DataTemplate x:DataType="app:ResourceRow">
+                  <ScrollViewer>
+                    <StackPanel Margin="20,18" Spacing="20">
+                      <StackPanel Spacing="6">
+                        <Border Classes="pill" HorizontalAlignment="Left" Background="{Binding Health, Converter={x:Static app:Converters.HealthPill}}">
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
+                            <TextBlock Text="{Binding StatusText}" FontSize="12" />
+                          </StackPanel>
+                        </Border>
+                        <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Classes="muted" FontSize="12">
+                          <Run Text="{Binding KindText}" /><Run Text=", нода " /><Run Text="{Binding Node}" />
+                        </TextBlock>
+                      </StackPanel>
+
+                      <StackPanel Spacing="14">
+                        <StackPanel Spacing="4">
+                          <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding Cpu, StringFormat='{}{0:0}%'}" />
+                            <TextBlock Classes="k" Text="CPU" />
+                          </DockPanel>
+                          <app:Sparkline Height="40" Values="{Binding CpuRecent}" Capacity="60" Fill="True"
+                                         Stroke="{Binding Cpu, Converter={x:Static app:Converters.LoadBrush}}" />
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                          <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding MemText}" />
+                            <TextBlock Classes="k" Text="Память" />
+                          </DockPanel>
+                          <ProgressBar Classes="thin" Value="{Binding MemPct}" Foreground="{Binding MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                          <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding DiskText}" />
+                            <TextBlock Classes="k" Text="Диск" />
+                          </DockPanel>
+                          <ProgressBar Classes="thin" Value="{Binding DiskPct}" Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                        </StackPanel>
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="k" Text="Температура" />
+                            <TextBlock Classes="v" Text="{Binding TempText}" Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="k" Text="Аптайм" />
+                            <TextBlock Classes="v" Text="{Binding UptimeText}" />
+                          </StackPanel>
+                          <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2">
+                            <TextBlock Classes="k" Text="Сеть" />
+                            <TextBlock Classes="v" Text="{Binding NetText}" />
+                          </StackPanel>
+                        </Grid>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6">
+                        <Button Classes="inspector accent" Content="Запустить" IsVisible="{Binding CanStart}" Click="InspectorStart_Click" />
+                        <Button Classes="inspector" Content="Перезагрузить…" IsVisible="{Binding CanStop}" Click="InspectorReboot_Click" />
+                        <Button Classes="inspector" Content="Остановить…" IsVisible="{Binding CanStop}" Click="InspectorStop_Click" />
+                        <Button Classes="inspector" Content="Создать снапшот" IsVisible="{Binding IsGuest}" Click="InspectorSnapshot_Click" />
+                        <Button Classes="inspector" Content="Терминал" Click="InspectorTerminal_Click" />
+                        <Button Classes="inspector" Content="Добавить виджет" Click="InspectorWidget_Click" />
+                        <Button Classes="inspector" Content="Свойства" Click="InspectorProperties_Click" />
+                      </StackPanel>
+                    </StackPanel>
+                  </ScrollViewer>
+                </DataTemplate>
+              </ContentControl.ContentTemplate>
+            </ContentControl>
+          </Panel>
+        </Border>
+
         <DataGrid x:Name="ResourceGrid" ItemsSource="{Binding View}" IsVisible="{Binding HasSources}"
                   IsReadOnly="True" SelectionMode="Extended"
                   CanUserSortColumns="True" CanUserResizeColumns="True" CanUserReorderColumns="True"
                   GridLinesVisibility="Horizontal" HeadersVisibility="Column" RowHeight="36"
-                  FrozenColumnCount="2" DoubleTapped="Grid_DoubleTapped">
+                  FrozenColumnCount="2" DoubleTapped="Grid_DoubleTapped" SelectionChanged="Grid_SelectionChanged">
           <DataGrid.Styles>
             <Style Selector="DataGridRow" x:DataType="app:ResourceRow">
               <Setter Property="Opacity" Value="{Binding Stale, Converter={x:Static app:Converters.StaleOpacity}}" />
@@ -323,10 +481,13 @@
             <DataGridTemplateColumn Header="Статус" SortMemberPath="Running" Width="132">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
-                  <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center">
-                    <Ellipse Width="8" Height="8" Fill="{Binding Running, Converter={x:Static app:Converters.StatusBrush}}" />
-                    <TextBlock Text="{Binding StatusText}" />
-                  </StackPanel>
+                  <Border Classes="pill" Margin="10,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                          Background="{Binding Health, Converter={x:Static app:Converters.HealthPill}}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
+                      <TextBlock Text="{Binding StatusText}" FontSize="12" />
+                    </StackPanel>
+                  </Border>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -425,6 +586,7 @@
             </DataGridTemplateColumn>
           </DataGrid.Columns>
         </DataGrid>
+        </DockPanel>
       </SplitView>
 
       <!-- Widgets float over the table; the empty canvas lets clicks through. -->
@@ -442,7 +604,7 @@
         </ItemsControl.Styles>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="app:WidgetVm">
-            <Border Classes="widget" ToolTip.Tip="Перетащите за любое место. ПКМ — что показывать"
+            <Border Classes="widget"
                     PointerPressed="Widget_PointerPressed" PointerMoved="Widget_PointerMoved"
                     PointerReleased="Widget_PointerReleased" ContextRequested="Widget_ContextRequested">
               <StackPanel Spacing="7">

@@ -14,7 +14,13 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     public string Key { get; } = key;
     public string SourceKey { get; } = sourceKey;
     public string LocalId { get; } = localId;
-    public bool IsNode { get; private set; }
+    public bool IsGuest => !IsNode;
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsGuest))] private bool _isNode;
+    [ObservableProperty] private bool _canStart;
+    [ObservableProperty] private bool _canStop;
+    [ObservableProperty] private string _guestsText = ""; // nodes only
+    [ObservableProperty] private bool _isFilterActive; // nodes only: the table shows just this node's guests
 
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _kindText = "";
@@ -57,6 +63,8 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         IsNode = s.Kind == ResourceKind.Node;
         KindText = s.Kind switch { ResourceKind.Node => "Нода", ResourceKind.Vm => "VM", _ => "LXC" };
         StatusText = s.Running ? "Работает" : "Остановлен";
+        CanStart = !IsNode && !s.Running;
+        CanStop = !IsNode && s.Running;
 
         Cpu = Math.Round(s.Cpu * 100, 1);
         MemPct = Pct(s.MemUsed, s.MemTotal);

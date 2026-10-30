@@ -76,6 +76,8 @@ public partial class MainViewModel : ObservableObject
     }
 
     public ObservableCollection<ResourceRow> Rows { get; } = [];
+    /// <summary>Physical hosts, shown as cards above the table; the table itself lists only VMs and containers.</summary>
+    public ObservableCollection<ResourceRow> Nodes { get; } = [];
     public DataGridCollectionView View { get; }
     public ObservableCollection<AlertEvent> Events { get; } = [];
     public ObservableCollection<SheetTab> Tabs { get; } = [];
@@ -93,6 +95,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isLogOpen;
     [ObservableProperty] private string _newTabName = "";
     [ObservableProperty] private SheetTab? _selectedTab;
+    /// <summary>What the inspector shows: the selected table row or node card.</summary>
+    [ObservableProperty] private ResourceRow? _selected;
+    /// <summary>Node whose guests the table is narrowed to, or null for all.</summary>
+    [ObservableProperty] private string? _nodeFilter;
+
+    public bool InspectorOpen
+    {
+        get => _settings.InspectorOpen;
+        set
+        {
+            _settings.InspectorOpen = value;
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
 
     [ObservableProperty] private string _nodesSummary = "—";
     [ObservableProperty] private string _guestsSummary = "—";
@@ -103,6 +120,19 @@ public partial class MainViewModel : ObservableObject
     partial void OnSearchChanged(string value) => View.Refresh();
     partial void OnOnlyProblemsChanged(bool value) => View.Refresh();
     partial void OnSelectedTabChanged(SheetTab? value) => View.Refresh();
+
+    partial void OnNodeFilterChanged(string? value)
+    {
+        foreach (var n in Nodes) n.IsFilterActive = n.Node == value;
+        View.Refresh();
+    }
+
+    /// <summary>Clicking a node card selects it; clicking the filtered one again shows all guests.</summary>
+    public void ToggleNodeFilter(ResourceRow node)
+    {
+        Selected = node;
+        NodeFilter = NodeFilter == node.Node ? null : node.Node;
+    }
 
     SourceState NewSource(IResourceSource source) => new(source, ThresholdsFor);
 
@@ -139,6 +169,10 @@ public partial class MainViewModel : ObservableObject
         Sources.FirstOrDefault(s => s.Source.Key == row.SourceKey)?.Source;
 
     public ServerConfig? ConfigOf(ResourceRow row) => _settings.Servers.FirstOrDefault(c => c.Key == row.SourceKey);
+
+    public string ExportServers() => ServerList.Export(_settings.Servers);
+
+    public bool HasServer(ServerEntry e) => _settings.Servers.Any(s => s.Url == e.Url && s.TokenId == e.TokenId);
 
     public void SaveSettings() => _settings.Save();
 
@@ -288,12 +322,14 @@ public partial class MainViewModel : ObservableObject
     public ResourceRow? Reveal(string key)
     {
         if (!_rows.TryGetValue(key, out var row)) return null;
-        if (!Matches(row))
+        if (!row.IsNode && !Matches(row))
         {
             Search = "";
             OnlyProblems = false;
+            NodeFilter = null;
             SelectedTab = Tabs[0];
         }
+        Selected = row;
         return row;
     }
 
@@ -347,13 +383,21 @@ public partial class MainViewModel : ObservableObject
         {
             var key = s.Source.Key + ":" + snap.Id;
             seen.Add(key);
-            if (!_rows.TryGetValue(key, out var row))
+            if (_rows.TryGetValue(key, out var row))
             {
-                row = new ResourceRow(key, s.Source.Key, snap.Id) { Section = SectionOf(key) };
-                _rows[key] = row;
-                Rows.Add(row);
+                row.Update(snap, ThresholdsFor(key));
+                continue;
             }
+            // Fill the row before adding it: the table filter decides on IsNode when the row arrives.
+            row = new ResourceRow(key, s.Source.Key, snap.Id) { Section = SectionOf(key) };
             row.Update(snap, ThresholdsFor(key));
+            _rows[key] = row;
+            Rows.Add(row);
+            if (row.IsNode)
+            {
+                row.IsFilterActive = row.Node == NodeFilter;
+                Nodes.Add(row);
+            }
         }
         foreach (var gone in Rows.Where(r => r.SourceKey == s.Source.Key && !seen.Contains(r.Key)).ToList())
             RemoveRow(gone);
@@ -364,7 +408,10 @@ public partial class MainViewModel : ObservableObject
     void RemoveRow(ResourceRow row)
     {
         Rows.Remove(row);
+        Nodes.Remove(row);
         _rows.Remove(row.Key);
+        if (Selected == row) Selected = null;
+        if (row.IsNode && NodeFilter == row.Node) NodeFilter = null;
         foreach (var w in Widgets.Where(w => w.Row == row)) w.Row = null;
     }
 
@@ -379,7 +426,12 @@ public partial class MainViewModel : ObservableObject
         TempSummary = temps.Count == 0 ? "—" : $"{temps.Max():0} °C";
         ProblemsCount = Rows.Count(r => r.HasProblem);
         foreach (var tab in Tabs)
-            tab.Count = tab.IsAll ? Rows.Count : Rows.Count(r => _settings.TabOf.GetValueOrDefault(r.Key) == tab.Name);
+            tab.Count = tab.IsAll ? guests.Count : guests.Count(r => _settings.TabOf.GetValueOrDefault(r.Key) == tab.Name);
+        foreach (var n in nodes)
+        {
+            var mine = guests.Where(g => g.SourceKey == n.SourceKey && g.Node == n.Node).ToList();
+            n.GuestsText = $"{mine.Count(g => g.Running)} из {mine.Count} запущено";
+        }
     }
 
     void Push(AlertEvent e)
@@ -390,6 +442,8 @@ public partial class MainViewModel : ObservableObject
     }
 
     bool Matches(ResourceRow r) =>
+        !r.IsNode &&
+        (NodeFilter is null || r.Node == NodeFilter) &&
         (SelectedTab is null || SelectedTab.IsAll || _settings.TabOf.GetValueOrDefault(r.Key) == SelectedTab.Name) &&
         (!OnlyProblems || r.HasProblem) &&
         (Search.Length == 0

@@ -19,6 +19,30 @@ public partial class MainWindow : Window
         InitializeComponent();
         // Right-click acts on the row under the cursor, like in a spreadsheet.
         ResourceGrid.AddHandler(PointerPressedEvent, SelectRowOnRightClick, RoutingStrategies.Tunnel);
+        AddHandler(KeyDownEvent, Shortcuts, RoutingStrategies.Tunnel);
+    }
+
+    void Shortcuts(object? sender, KeyEventArgs e)
+    {
+        if (!e.KeyModifiers.HasFlag(KeyModifiers.Control)) return;
+        if (e.Key == Key.F)
+        {
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.I)
+        {
+            Vm.InspectorOpen = !Vm.InspectorOpen;
+            e.Handled = true;
+        }
+    }
+
+    void Search_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        Vm.Search = "";
+        ResourceGrid.Focus();
     }
 
     MainViewModel Vm => (MainViewModel)DataContext!;
@@ -81,13 +105,88 @@ public partial class MainWindow : Window
         if ((e.Source as StyledElement)?.DataContext is ResourceRow row) OpenProperties(row);
     }
 
+    void Grid_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ResourceGrid.SelectedItem is ResourceRow row) Vm.Selected = row;
+    }
+
     void Log_DoubleTapped(object? sender, TappedEventArgs e)
     {
         // Server-wide events (lost connection) have no row to point at.
-        if ((e.Source as StyledElement)?.DataContext is not AlertEvent { Id: { } key } || Vm.Reveal(key) is not { } row) return;
+        if ((e.Source as StyledElement)?.DataContext is AlertEvent { Id: { } key } && Vm.Reveal(key) is { } row) GoTo(row);
+    }
+
+    /// <summary>Shows a VM in the table or a node in the inspector.</summary>
+    void GoTo(ResourceRow row)
+    {
+        Vm.Reveal(row.Key);
+        if (row.IsNode)
+        {
+            ResourceGrid.SelectedItem = null;
+            Vm.Selected = row;
+            Vm.InspectorOpen = true;
+            return;
+        }
         ResourceGrid.SelectedItem = row;
         ResourceGrid.ScrollIntoView(row, null);
     }
+
+    // ---- nodes ----
+
+    void Node_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Control { DataContext: ResourceRow node } c || !e.GetCurrentPoint(c).Properties.IsLeftButtonPressed) return;
+        if (e.ClickCount == 2)
+        {
+            OpenProperties(node);
+            return;
+        }
+        ResourceGrid.SelectedItem = null;
+        Vm.ToggleNodeFilter(node);
+    }
+
+    void Node_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Control { DataContext: ResourceRow node } c) return;
+        e.Handled = true;
+        new ContextMenu
+        {
+            ItemsSource = new Control[]
+            {
+                Item(node.IsFilterActive ? "Показать все VM" : "Показать только VM этой ноды", () => Vm.ToggleNodeFilter(node)),
+                Item("Терминал", () => OpenTerminal(node)),
+                Item("Добавить виджет", () => Vm.AddWidget(node)),
+                new Separator(),
+                Bold(Item("Свойства", () => OpenProperties(node))),
+            },
+        }.Open(c);
+    }
+
+    // ---- inspector ----
+
+    ResourceRow? Inspected => Vm.Selected;
+
+    async void InspectorStart_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Start, Inspected);
+    async void InspectorStop_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Stop, Inspected);
+    async void InspectorReboot_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Reboot, Inspected);
+    async void InspectorSnapshot_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Snapshot, Inspected);
+
+    void InspectorTerminal_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Inspected is { } row) OpenTerminal(row);
+    }
+
+    void InspectorWidget_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Inspected is { } row) Vm.AddWidget(row);
+    }
+
+    void InspectorProperties_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Inspected is { } row) OpenProperties(row);
+    }
+
+    void OpenTerminal(ResourceRow row) => new TerminalWindow(row, Vm).Show(this);
 
     void RowMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -136,18 +235,31 @@ public partial class MainWindow : Window
 
     List<ResourceRow> Guests(bool running) => SelectedRows.Where(r => !r.IsNode && r.Running == running).ToList();
 
-    async void Start_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Start, Guests(running: false));
-    async void Snapshot_Click(object? sender, RoutedEventArgs e) => await Vm.RunAsync(PowerAction.Snapshot, SelectedRows.Where(r => !r.IsNode).ToList());
-    async void Stop_Click(object? sender, RoutedEventArgs e) => await ConfirmAndRun(PowerAction.Stop, "Остановить");
-    async void Reboot_Click(object? sender, RoutedEventArgs e) => await ConfirmAndRun(PowerAction.Reboot, "Перезагрузить");
+    async void Start_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Start, SelectedRows);
+    async void Snapshot_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Snapshot, SelectedRows);
+    async void Stop_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Stop, SelectedRows);
+    async void Reboot_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Reboot, SelectedRows);
 
-    async Task ConfirmAndRun(PowerAction action, string verb)
+    Task Act(PowerAction action, ResourceRow? row) => row is null ? Task.CompletedTask : Act(action, [row]);
+
+    /// <summary>Runs an action on the guests it applies to; stop and reboot ask first.</summary>
+    async Task Act(PowerAction action, IEnumerable<ResourceRow> selection)
     {
-        var rows = Guests(running: true);
+        var rows = selection.Where(r => !r.IsNode && action switch
+        {
+            PowerAction.Start => !r.Running,
+            PowerAction.Snapshot => true,
+            _ => r.Running,
+        }).ToList();
         if (rows.Count == 0) return;
-        var what = rows.Count == 1 ? rows[0].Name : $"{rows.Count} шт.";
-        if (await ConfirmAsync($"{verb} {what}?", "Несохранённые данные внутри гостевой системы могут быть потеряны.", verb))
-            await Vm.RunAsync(action, rows);
+        if (action is PowerAction.Stop or PowerAction.Reboot)
+        {
+            var verb = action == PowerAction.Stop ? "Остановить" : "Перезагрузить";
+            var what = rows.Count == 1 ? rows[0].Name : $"{rows.Count} шт.";
+            if (!await ConfirmAsync($"{verb} {what}?", "Несохранённые данные внутри гостевой системы могут быть потеряны.", verb))
+                return;
+        }
+        await Vm.RunAsync(action, rows);
     }
 
     // ---- widgets ----
@@ -213,8 +325,10 @@ public partial class MainWindow : Window
         };
         if (w.Row is { } row)
         {
+            menu.Insert(0, Item(row.IsNode ? $"Перейти к ноде {row.Name}" : $"Перейти к {row.Name}", () => GoTo(row)));
+            menu.Insert(1, new Separator());
             menu.Add(new Separator());
-            menu.Add(Item("Свойства", () => OpenProperties(row)));
+            menu.Add(Bold(Item("Свойства", () => OpenProperties(row))));
         }
         new ContextMenu { ItemsSource = menu }.Open(c);
     }
@@ -259,18 +373,36 @@ public partial class MainWindow : Window
         return item;
     }
 
+    static MenuItem Bold(MenuItem item)
+    {
+        item.FontWeight = FontWeight.SemiBold;
+        return item;
+    }
+
     static void OpenMenu(Control target, params MenuItem[] items) =>
         new ContextMenu { ItemsSource = items }.Open(target);
 
-    Task<bool> ConfirmAsync(string title, string text, string ok)
+    // Confirmations the user switched off until the app restarts, keyed by the action's verb.
+    static readonly HashSet<string> SkippedConfirmations = [];
+
+    async Task<bool> ConfirmAsync(string title, string text, string ok)
     {
+        if (SkippedConfirmations.Contains(ok)) return true;
         var yes = new Button { Content = ok, Padding = new Thickness(16, 6) };
         yes.Classes.Add("accent");
         var no = new Button { Content = "Отмена", Padding = new Thickness(16, 6) };
-        var dialog = Dialog(no, title, new TextBlock { Text = text, Classes = { "muted" }, TextWrapping = TextWrapping.Wrap }, no, yes);
+        var skip = new CheckBox { Content = "Не показывать в этой сессии", FontSize = 12 };
+        var body = new StackPanel
+        {
+            Spacing = 12,
+            Children = { new TextBlock { Text = text, Classes = { "muted" }, TextWrapping = TextWrapping.Wrap }, skip },
+        };
+        var dialog = Dialog(no, title, body, no, yes);
         yes.Click += (_, _) => dialog.Close(true);
         no.Click += (_, _) => dialog.Close(false);
-        return dialog.ShowDialog<bool>(this);
+        var confirmed = await dialog.ShowDialog<bool>(this);
+        if (confirmed && skip.IsChecked == true) SkippedConfirmations.Add(ok);
+        return confirmed;
     }
 
     async Task<string?> PromptAsync(string title, string watermark)

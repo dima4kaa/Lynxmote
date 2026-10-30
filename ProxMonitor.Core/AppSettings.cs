@@ -42,7 +42,8 @@ public sealed class AppSettings
     [JsonIgnore] public string FilePath { get; private set; } = DefaultPath;
 
     public bool Demo { get; set; }
-    public string Theme { get; set; } = "Default";
+    public string Theme { get; set; } = "Dark";
+    public bool InspectorOpen { get; set; } = true;
     public List<ServerConfig> Servers { get; set; } = [];
     public List<string> Tabs { get; set; } = [];
     public Dictionary<string, string> TabOf { get; set; } = []; // resource key -> tab name

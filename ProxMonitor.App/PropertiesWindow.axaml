@@ -128,6 +128,37 @@
         </UniformGrid>
       </Border>
 
+      <!-- Active connections, read with ss on the server -->
+      <Border Classes="card">
+        <StackPanel Spacing="10">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="Обновить" Click="RefreshConnections_Click" Padding="12,4" />
+            <StackPanel Spacing="2">
+              <TextBlock Text="Активные подключения" FontWeight="SemiBold" />
+              <TextBlock x:Name="ConnectionsHint" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+            </StackPanel>
+          </DockPanel>
+          <Grid x:Name="ConnectionsHeader" ColumnDefinitions="80,*,*,*" IsVisible="False">
+            <TextBlock Classes="label" Text="Протокол" />
+            <TextBlock Grid.Column="1" Classes="label" Text="Адрес сервера" />
+            <TextBlock Grid.Column="2" Classes="label" Text="Откуда подключились" />
+            <TextBlock Grid.Column="3" Classes="label" Text="Программа" />
+          </Grid>
+          <ItemsControl x:Name="ConnectionsList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="core:NetConnection">
+                <Grid ColumnDefinitions="80,*,*,*" Margin="0,3">
+                  <TextBlock Classes="muted" FontSize="12" Text="{Binding Proto}" />
+                  <TextBlock Grid.Column="1" FontSize="12" Text="{Binding Local}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="2" FontSize="12" Text="{Binding Peer}" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="3" FontSize="12" FontWeight="SemiBold" Text="{Binding Process}" TextTrimming="CharacterEllipsis" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
       <!-- Own danger levels -->
       <Border Classes="card">
         <StackPanel Spacing="12">

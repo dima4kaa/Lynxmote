@@ -54,11 +54,31 @@ public partial class TerminalWindow : Window
         };
     }
 
+    static (TerminalTarget Target, int Vmid) TargetOf(ResourceRow r) => r.IsNode
+        ? (TerminalTarget.Node, 0)
+        : (r.LocalId.StartsWith("lxc/") ? TerminalTarget.Container : TerminalTarget.Vm, int.Parse(r.LocalId.Split('/')[1]));
+
+    static string LabelOf(ResourceRow r) => r.IsNode ? r.Node : r.Name.Split(' ').Last();
+
+    /// <summary>A terminal without asking anything: demo, or SSH with a saved login and an already confirmed host key.</summary>
+    public static async Task<(ITerminal? Terminal, string? Problem)> ConnectSavedAsync(ResourceRow row, MainViewModel vm)
+    {
+        if (vm.SourceOf(row) is DemoSource) return (new DemoTerminal(LabelOf(row)), null);
+        if (vm.SourceOf(row) is not ProxmoxSource source || vm.ConfigOf(row) is not { } cfg) return (null, "Сервер не подключён");
+        const string firstLogin = "Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его";
+        if (cfg.SshUser is not { } user || Secrets.Unprotect(cfg.ProtectedSshPassword) is not { } password) return (null, firstLogin);
+        var host = await source.NodeAddressAsync(row.Node, default);
+        if (!cfg.SshHostKeys.TryGetValue(host, out var key)) return (null, firstLogin);
+        var (target, vmid) = TargetOf(row);
+        var r = await SshTerminal.ConnectAsync(host, user, password, key, LabelOf(row), target, vmid, default);
+        return (r.Terminal, r.Terminal is null ? r.Error ?? "Ключ сервера изменился, откройте «Терминал»" : null);
+    }
+
     async Task StartAsync()
     {
         if (_vm!.SourceOf(_row!) is DemoSource)
         {
-            Connected(new DemoTerminal(_row!.IsNode ? _row.Name : _row.Name.Split(' ').Last()), "демо-режим");
+            Connected(new DemoTerminal(LabelOf(_row!)), "демо-режим");
             return;
         }
         if (_vm.SourceOf(_row!) is not ProxmoxSource source || _vm.ConfigOf(_row!) is not { } cfg)
@@ -90,10 +110,9 @@ public partial class TerminalWindow : Window
 
         LoginButton.IsEnabled = false;
         StatusText.Text = "подключение…";
-        var (target, vmid) = _row!.IsNode ? (TerminalTarget.Node, 0)
-            : (_row.LocalId.StartsWith("lxc/") ? TerminalTarget.Container : TerminalTarget.Vm, int.Parse(_row.LocalId.Split('/')[1]));
+        var (target, vmid) = TargetOf(_row!);
         var result = await SshTerminal.ConnectAsync(_host!, user, password, cfg.SshHostKeys.GetValueOrDefault(_host!),
-            _row.IsNode ? _row.Node : _row.Name.Split(' ').Last(), target, vmid, default);
+            LabelOf(_row!), target, vmid, default);
         LoginButton.IsEnabled = true;
 
         if (result.Terminal is { } terminal)

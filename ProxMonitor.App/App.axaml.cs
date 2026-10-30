@@ -14,12 +14,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var vm = new MainViewModel();
-            RequestedThemeVariant = vm.Theme switch
-            {
-                "Light" => ThemeVariant.Light,
-                "Dark" => ThemeVariant.Dark,
-                _ => ThemeVariant.Default,
-            };
+            RequestedThemeVariant = vm.Theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
             if (desktop.Args?.Contains("--demo") == true) vm.EnableDemo();
             desktop.MainWindow = new MainWindow { DataContext = vm };
         }

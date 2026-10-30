@@ -40,5 +40,30 @@ public static class Converters
         _ => null,
     });
 
+    // Status pills: same hues as the row tints, a step stronger.
+    static readonly IBrush OkPill = new SolidColorBrush(Color.Parse("#3322C55E"));
+    static readonly IBrush DangerPill = new SolidColorBrush(Color.Parse("#40EF4444"));
+    static readonly IBrush OffPill = new SolidColorBrush(Color.Parse("#40F59E0B"));
+    static readonly IBrush UnknownPill = new SolidColorBrush(Color.Parse("#338A90A0"));
+
+    public static readonly FuncValueConverter<Health, IBrush> HealthPill = new(h => h switch
+    {
+        Health.Ok => OkPill,
+        Health.Danger => DangerPill,
+        Health.Off => OffPill,
+        _ => UnknownPill,
+    });
+
+    public static readonly FuncValueConverter<Health, IBrush> HealthDot = new(h => h switch
+    {
+        Health.Ok => Green,
+        Health.Danger => Red,
+        Health.Off => Amber,
+        _ => Gray,
+    });
+
+    static readonly IBrush QuietBorder = new SolidColorBrush(Color.Parse("#2E8A90A0"));
+    public static readonly FuncValueConverter<bool, IBrush> FilterBorder = new(on => on ? Accent : QuietBorder);
+
     public static readonly FuncValueConverter<bool, double> StaleOpacity = new(stale => stale ? 0.45 : 1);
 }

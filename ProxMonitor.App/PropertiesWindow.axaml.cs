@@ -35,6 +35,8 @@ public partial class PropertiesWindow : Window
         Closed += (_, _) => vm.Alert -= OnAlert;
         Closing += (_, _) => Thresholds_Changed(null, new RoutedEventArgs()); // digits typed but not yet committed
 
+        Opened += async (_, _) => await LoadConnectionsAsync();
+
         OwnBox.IsChecked = vm.HasOwnThresholds(row.Key);
         ShowThresholds(vm.ThresholdsFor(row.Key));
         _loading = false;
@@ -57,6 +59,46 @@ public partial class PropertiesWindow : Window
             _vm.SetThresholds(_row.Key, null);
         ShowThresholds(_vm.ThresholdsFor(_row.Key));
         _loading = false;
+    }
+
+    async void RefreshConnections_Click(object? sender, RoutedEventArgs e) => await LoadConnectionsAsync();
+
+    async Task LoadConnectionsAsync()
+    {
+        if (_row is null || _vm is null) return;
+        if (!_row.Running)
+        {
+            ShowConnections([], "Сервер выключен");
+            return;
+        }
+        ConnectionsHint.Text = "Загрузка…";
+        var (terminal, problem) = await TerminalWindow.ConnectSavedAsync(_row, _vm);
+        if (terminal is null)
+        {
+            ShowConnections([], problem);
+            return;
+        }
+        using (terminal)
+        {
+            try
+            {
+                var result = await terminal.RunAsync(NetConnections.Command, default);
+                var list = NetConnections.Parse(result.Output);
+                ShowConnections(list, result.ExitCode != 0 ? result.Output
+                    : list.Count == 0 ? "Подключений нет" : $"Установленных соединений: {list.Count}");
+            }
+            catch (Exception ex)
+            {
+                ShowConnections([], ex.Message);
+            }
+        }
+    }
+
+    void ShowConnections(List<NetConnection> list, string? hint)
+    {
+        ConnectionsList.ItemsSource = list;
+        ConnectionsHeader.IsVisible = list.Count > 0;
+        ConnectionsHint.Text = hint;
     }
 
     void OpenTerminal(object? sender, RoutedEventArgs e)

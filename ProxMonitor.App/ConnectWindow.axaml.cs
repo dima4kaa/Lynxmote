@@ -8,12 +8,20 @@ public sealed record NewServer(ServerConfig Config, string Secret);
 
 public partial class ConnectWindow : Window
 {
-    string? _seenCert;
+    string? _seenCert, _sshUser;
 
     public ConnectWindow()
     {
         InitializeComponent();
         this.UseOwnTitleBar(this, captionButtons: false);
+    }
+
+    /// <summary>For an imported server: everything is filled in except the secret.</summary>
+    public ConnectWindow(ServerEntry entry) : this()
+    {
+        (NameBox.Text, UrlBox.Text, TokenIdBox.Text, _sshUser) = (entry.Name, entry.Url, entry.TokenId, entry.SshUser);
+        StatusText.Text = $"Вставьте секрет токена для «{entry.Name}» или нажмите «Отмена», чтобы пропустить";
+        Opened += (_, _) => SecretBox.Focus();
     }
 
     void Cancel_Click(object? sender, RoutedEventArgs e) => Close(null);
@@ -47,6 +55,7 @@ public partial class ConnectWindow : Window
             Url = uri.GetLeftPart(UriPartial.Authority),
             TokenId = tokenId,
             PinnedCert = TrustBox.IsChecked == true ? _seenCert : null,
+            SshUser = _sshUser,
         };
 
         ConnectButton.IsEnabled = false;

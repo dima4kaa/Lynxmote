@@ -162,6 +162,13 @@ public sealed class DemoTerminal(string host) : ITerminal
                 104        running                 dns-01
                 110        running                 backup
                 """, 0),
+            "ss" => ("""
+                tcp   0      0      10.0.10.11:8006    10.0.10.50:51234   users:(("pveproxy worker",pid=2231,fd=12))
+                tcp   0      0      10.0.10.11:22      10.0.10.50:50122   users:(("sshd",pid=1904,fd=4))
+                tcp   0      0      10.0.10.11:5432    10.0.10.21:40418   users:(("postgres",pid=3310,fd=9))
+                tcp   0      0      10.0.10.11:443     10.0.20.7:61002    users:(("nginx",pid=1288,fd=17))
+                udp   0      0      10.0.10.11:123     10.0.0.1:123       users:(("chronyd",pid=812,fd=6))
+                """, 0),
             "systemctl" => ("""
                 ● pveproxy.service - PVE API Proxy Server
                      Loaded: loaded (/lib/systemd/system/pveproxy.service; enabled)

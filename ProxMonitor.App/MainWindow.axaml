@@ -610,7 +610,7 @@
               <StackPanel Spacing="7">
                 <DockPanel>
                   <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
-                           Fill="{Binding Row.Running, Converter={x:Static app:Converters.StatusBrush}, FallbackValue=Gray}" />
+                           Fill="{Binding Row.Health, Converter={x:Static app:Converters.HealthDot}, FallbackValue=Gray}" />
                   <TextBlock Text="{Binding Row.Name, FallbackValue='Нет данных'}" FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis" />
                 </DockPanel>

@@ -31,4 +31,7 @@ public interface IResourceSource
     TimeSpan Interval { get; }
     Task<IReadOnlyList<ResourceSnapshot>> FetchAsync(CancellationToken ct);
     Task<string> ApplyAsync(string id, PowerAction action, CancellationToken ct);
+
+    /// <summary>IPv4 addresses of a node, container or VM, comma-separated; null when the server can't tell.</summary>
+    Task<string?> AddressAsync(string id, string node, CancellationToken ct);
 }

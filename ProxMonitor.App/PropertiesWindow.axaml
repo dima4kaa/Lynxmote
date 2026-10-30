@@ -106,7 +106,7 @@
 
       <!-- Facts -->
       <Border Classes="card">
-        <UniformGrid Columns="4">
+        <UniformGrid Columns="5">
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Диск" />
             <TextBlock Text="{Binding DiskText}" FontWeight="SemiBold" />
@@ -120,6 +120,10 @@
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="ID в Proxmox" />
             <TextBlock Text="{Binding LocalId}" FontWeight="SemiBold" />
+          </StackPanel>
+          <StackPanel Spacing="2">
+            <TextBlock Classes="label" Text="IP-адрес" />
+            <SelectableTextBlock x:Name="IpText" Text="…" FontWeight="SemiBold" TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel Spacing="2">
             <TextBlock Classes="label" Text="Нода" />

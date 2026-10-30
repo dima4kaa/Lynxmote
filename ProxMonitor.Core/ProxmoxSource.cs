@@ -138,6 +138,40 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         return _http.BaseAddress!.Host;
     }
 
+    public async Task<string?> AddressAsync(string id, string node, CancellationToken ct)
+    {
+        try
+        {
+            if (id.StartsWith("node/")) return await NodeAddressAsync(node, ct);
+            var path = $"nodes/{Uri.EscapeDataString(node)}/{id}";
+            if (id.StartsWith("lxc/"))
+            {
+                using var doc = await GetAsync(path + "/interfaces", ct);
+                return JoinIps(doc.RootElement.GetProperty("data").EnumerateArray()
+                    .Where(i => Str(i, "name") != "lo")
+                    .Select(i => Str(i, "inet").Split('/')[0]));
+            }
+            // VMs only report addresses through qemu-guest-agent.
+            using var agent = await GetAsync(path + "/agent/network-get-interfaces", ct);
+            return JoinIps(agent.RootElement.GetProperty("data").GetProperty("result").EnumerateArray()
+                .Where(i => Str(i, "name") != "lo" && i.TryGetProperty("ip-addresses", out _))
+                .SelectMany(i => i.GetProperty("ip-addresses").EnumerateArray())
+                .Where(a => Str(a, "ip-address-type") == "ipv4")
+                .Select(a => Str(a, "ip-address")));
+        }
+        catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
+                                      or JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    static string? JoinIps(IEnumerable<string> ips)
+    {
+        var text = string.Join(", ", ips.Where(ip => ip.Length > 0 && !ip.StartsWith("127.")).Distinct());
+        return text.Length > 0 ? text : null;
+    }
+
     public void Dispose() => _http.Dispose();
 
     async Task<JsonDocument> GetAsync(string path, CancellationToken ct)

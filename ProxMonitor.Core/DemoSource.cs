@@ -76,6 +76,9 @@ public sealed class DemoSource : IResourceSource
     public Task<string> ApplyAsync(string id, PowerAction action, CancellationToken ct) =>
         Task.FromResult(Apply(id, action));
 
+    public Task<string?> AddressAsync(string id, string node, CancellationToken ct) => Task.FromResult<string?>(
+        id.StartsWith("node/") ? $"10.0.10.1{node[^1]}" : $"10.0.20.{int.Parse(id.Split('/')[1]) - 90}");
+
     public IReadOnlyList<ResourceSnapshot> Next(TimeSpan elapsed)
     {
         if (_rnd.NextDouble() < 0.04) Incident();

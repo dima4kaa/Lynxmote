@@ -61,6 +61,12 @@ sealed class FakeProxmox : IAsyncDisposable
             await next();
         });
         app.MapGet("/api2/json/cluster/resources", () => Results.Text(Resources, "application/json"));
+        app.MapGet("/api2/json/cluster/status", () => Results.Text(
+            """{"data":[{"type":"cluster","name":"lab"},{"type":"node","name":"pve","ip":"10.0.0.5","online":1}]}""", "application/json"));
+        app.MapGet("/api2/json/nodes/pve/lxc/101/interfaces", () => Results.Text(
+            """{"data":[{"name":"lo","inet":"127.0.0.1/8"},{"name":"eth0","inet":"10.0.0.21/24","hwaddr":"bc:24:11:00:00:01"}]}""", "application/json"));
+        app.MapGet("/api2/json/nodes/pve/qemu/100/agent/network-get-interfaces", () => Results.Text(
+            """{"data":{"result":[{"name":"lo","ip-addresses":[{"ip-address":"127.0.0.1","ip-address-type":"ipv4"}]},{"name":"ens18","ip-addresses":[{"ip-address":"10.0.0.20","ip-address-type":"ipv4","prefix":24},{"ip-address":"fe80::1","ip-address-type":"ipv6"}]}]}}""", "application/json"));
         app.MapPost("/api2/json/nodes/{node}/{type}/{vmid}/{**action}", async (HttpContext ctx, string node, string type, string vmid, string action) =>
         {
             var form = ctx.Request.HasFormContentType ? await ctx.Request.ReadFormAsync() : null;
@@ -126,6 +132,18 @@ public class ProxmoxSourceTests
         Assert.Equal(0.5, vm.Cpu);
         Assert.Equal(ResourceKind.Container, list[2].Kind);
         Assert.False(list[2].Running);
+    }
+
+    [Fact]
+    public async Task Addresses_come_from_cluster_status_lxc_interfaces_and_guest_agent()
+    {
+        await using var pve = await FakeProxmox.StartAsync();
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+
+        Assert.Equal("10.0.0.5", await source.AddressAsync("node/pve", "pve", default));
+        Assert.Equal("10.0.0.21", await source.AddressAsync("lxc/101", "pve", default));
+        Assert.Equal("10.0.0.20", await source.AddressAsync("qemu/100", "pve", default));
+        Assert.Null(await source.AddressAsync("qemu/999", "pve", default)); // no guest agent answer
     }
 
     [Fact]

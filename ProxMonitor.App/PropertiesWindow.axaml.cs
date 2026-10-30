@@ -35,7 +35,12 @@ public partial class PropertiesWindow : Window
         Closed += (_, _) => vm.Alert -= OnAlert;
         Closing += (_, _) => Thresholds_Changed(null, new RoutedEventArgs()); // digits typed but not yet committed
 
-        Opened += async (_, _) => await LoadConnectionsAsync();
+        Opened += async (_, _) =>
+        {
+            var ip = vm.SourceOf(row) is { } source ? await source.AddressAsync(row.LocalId, row.Node, default) : null;
+            IpText.Text = ip ?? (row.LocalId.StartsWith("qemu/") ? "нужен qemu-guest-agent" : "неизвестен");
+            await LoadConnectionsAsync();
+        };
 
         OwnBox.IsChecked = vm.HasOwnThresholds(row.Key);
         ShowThresholds(vm.ThresholdsFor(row.Key));

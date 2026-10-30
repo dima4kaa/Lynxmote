@@ -21,6 +21,7 @@ public partial class PropertiesWindow : Window
     {
         (_row, _vm) = (row, vm);
         DataContext = row;
+        Title = L.F("Свойства: {0}", row.Name);
         var events = new ObservableCollection<AlertEvent>(vm.Events.Where(e => e.Id == row.Key));
         EventsList.ItemsSource = events;
         NoEvents.IsVisible = events.Count == 0;
@@ -38,7 +39,7 @@ public partial class PropertiesWindow : Window
         Opened += async (_, _) =>
         {
             var ip = vm.SourceOf(row) is { } source ? await source.AddressAsync(row.LocalId, row.Node, default) : null;
-            IpText.Text = ip ?? (row.LocalId.StartsWith("qemu/") ? "нужен qemu-guest-agent" : "неизвестен");
+            IpText.Text = ip ?? (row.LocalId.StartsWith("qemu/") ? L.T("нужен qemu-guest-agent") : L.T("неизвестен"));
             await LoadConnectionsAsync();
         };
 
@@ -51,7 +52,7 @@ public partial class PropertiesWindow : Window
     {
         (CpuBox.Value, TempBox.Value, DiskBox.Value) = ((decimal)t.CpuPct, (decimal)t.TempC, (decimal)t.DiskPct);
         ThresholdsBoxes.IsEnabled = OwnBox.IsChecked == true;
-        ThresholdsHint.Text = OwnBox.IsChecked == true ? "Действуют только для этого сервера" : "Сейчас действуют общие значения из настроек";
+        ThresholdsHint.Text = OwnBox.IsChecked == true ? L.T("Действуют только для этого сервера") : L.T("Сейчас действуют общие значения из настроек");
     }
 
     void Thresholds_Changed(object? sender, RoutedEventArgs e)
@@ -73,10 +74,10 @@ public partial class PropertiesWindow : Window
         if (_row is null || _vm is null) return;
         if (!_row.Running)
         {
-            ShowConnections([], "Сервер выключен");
+            ShowConnections([], L.T("Сервер выключен"));
             return;
         }
-        ConnectionsHint.Text = "Загрузка…";
+        ConnectionsHint.Text = L.T("Загрузка…");
         var (terminal, problem) = await TerminalWindow.ConnectSavedAsync(_row, _vm);
         if (terminal is null)
         {
@@ -90,7 +91,7 @@ public partial class PropertiesWindow : Window
                 var result = await terminal.RunAsync(NetConnections.Command, default);
                 var list = NetConnections.Parse(result.Output);
                 ShowConnections(list, result.ExitCode != 0 ? result.Output
-                    : list.Count == 0 ? "Подключений нет" : $"Установленных соединений: {list.Count}");
+                    : list.Count == 0 ? L.T("Подключений нет") : L.F("Установленных соединений: {0}", list.Count));
             }
             catch (Exception ex)
             {

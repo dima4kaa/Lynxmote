@@ -24,7 +24,7 @@ public sealed class DemoSource : IResourceSource
     DateTime? _lastFetch;
 
     public string Key => "demo";
-    public string Title => "Демо-кластер";
+    public string Title => L.T("Демо-кластер");
     public TimeSpan Interval => TimeSpan.FromMilliseconds(500);
 
     public DemoSource(int seed = 7)
@@ -90,24 +90,24 @@ public sealed class DemoSource : IResourceSource
     string Apply(string id, PowerAction action)
     {
         var item = _items.Single(i => i.Id == id);
-        if (item.Kind == ResourceKind.Node) return "В демо-режиме действия с нодами отключены";
+        if (item.Kind == ResourceKind.Node) return L.T("В демо-режиме действия с нодами отключены");
         switch (action)
         {
             case PowerAction.Start:
-                if (item.Running) return "Уже запущен";
+                if (item.Running) return L.T("Уже запущен");
                 Start(item);
-                return "Отправлена команда запуска";
+                return L.T("Отправлена команда запуска");
             case PowerAction.Stop:
-                if (!item.Running) return "Уже остановлен";
+                if (!item.Running) return L.T("Уже остановлен");
                 item.Running = false;
-                return "Отправлена команда остановки";
+                return L.T("Отправлена команда остановки");
             case PowerAction.Reboot:
-                if (!item.Running) return "Не запущен";
+                if (!item.Running) return L.T("Не запущен");
                 item.Uptime = TimeSpan.Zero;
                 item.Cpu = 0.6;
-                return "Перезагружается";
+                return L.T("Перезагружается");
             default:
-                return $"Создан снапшот pm{DateTime.Now:yyyyMMdd_HHmmss}";
+                return L.F("Создан снапшот {0}", $"pm{DateTime.Now:yyyyMMdd_HHmmss}");
         }
     }
 

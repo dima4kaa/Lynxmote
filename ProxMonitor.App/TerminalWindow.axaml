@@ -43,7 +43,7 @@
     <!-- Header: also the title bar; the right margin leaves room for the caption buttons -->
     <Border x:Name="TitleBar" DockPanel.Dock="Top" Background="#14171D" BorderBrush="#232832" BorderThickness="0,0,0,1" Height="40">
       <DockPanel Margin="16,0,150,0">
-        <Button DockPanel.Dock="Right" Classes="chip" Content="Очистить  Ctrl+L" Click="Clear_Click" />
+        <Button DockPanel.Dock="Right" Classes="chip" Content="{app:T 'Очистить  Ctrl+L'}" Click="Clear_Click" />
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#F59E0B" />
           <TextBlock x:Name="TargetText" FontWeight="SemiBold" Foreground="#E6E8EC" />
@@ -71,10 +71,10 @@
     <!-- Input -->
     <Border DockPanel.Dock="Bottom" Background="#14171D" BorderBrush="#232832" BorderThickness="0,1,0,0" Padding="16,10">
       <DockPanel>
-        <Button x:Name="StopButton" DockPanel.Dock="Right" Classes="chip" Content="Прервать  Ctrl+C" IsVisible="False" Click="Stop_Click" />
+        <Button x:Name="StopButton" DockPanel.Dock="Right" Classes="chip" Content="{app:T 'Прервать  Ctrl+C'}" IsVisible="False" Click="Stop_Click" />
         <TextBlock x:Name="PromptText" DockPanel.Dock="Left" Classes="mono" Foreground="#4ADE80" VerticalAlignment="Center" Margin="0,0,10,0" />
         <TextBox x:Name="Input" Classes="mono" Background="Transparent" BorderThickness="0" Foreground="#E6E8EC"
-                 Watermark="Введите команду и нажмите Enter · ↑↓ история" KeyDown="Input_KeyDown" IsEnabled="False" />
+                 Watermark="{app:T 'Введите команду и нажмите Enter · ↑↓ история'}" KeyDown="Input_KeyDown" IsEnabled="False" />
       </DockPanel>
     </Border>
 
@@ -105,23 +105,23 @@
       <!-- SSH login, shown until connected -->
       <Border x:Name="LoginPanel" IsVisible="False" Background="#0E1014">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="300">
-          <TextBlock Text="Вход по SSH" FontSize="18" FontWeight="SemiBold" Foreground="#E6E8EC" />
+          <TextBlock Text="{app:T 'Вход по SSH'}" FontSize="18" FontWeight="SemiBold" Foreground="#E6E8EC" />
           <TextBlock x:Name="LoginHint" Foreground="#8A90A0" FontSize="12" TextWrapping="Wrap" />
-          <TextBox x:Name="UserBox" Text="root" Watermark="Пользователь" />
-          <TextBox x:Name="PasswordBox" PasswordChar="•" Watermark="Пароль" KeyDown="Password_KeyDown" />
+          <TextBox x:Name="UserBox" Text="root" Watermark="{app:T 'Пользователь'}" />
+          <TextBox x:Name="PasswordBox" PasswordChar="•" Watermark="{app:T 'Пароль'}" KeyDown="Password_KeyDown" />
           <Border x:Name="HostKeyPanel" IsVisible="False" Background="#14171D" CornerRadius="8" Padding="10">
             <StackPanel Spacing="6">
               <TextBlock FontSize="12" Foreground="#C9CED8" TextWrapping="Wrap"
-                         Text="Первое подключение к этому серверу. Сверьте отпечаток ключа (на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub):" />
+                         Text="{app:T 'Первое подключение к этому серверу. Сверьте отпечаток ключа (на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub):'}" />
               <SelectableTextBlock x:Name="HostKeyText" Classes="mono" FontSize="11" Foreground="#E6E8EC" TextWrapping="Wrap" />
-              <CheckBox x:Name="TrustBox" Content="Отпечаток совпадает, доверять" FontSize="12" />
+              <CheckBox x:Name="TrustBox" Content="{app:T 'Отпечаток совпадает, доверять'}" FontSize="12" />
             </StackPanel>
           </Border>
           <TextBlock x:Name="LoginError" Foreground="#F87171" FontSize="12" TextWrapping="Wrap" />
-          <Button x:Name="LoginButton" Classes="accent" Content="Подключиться" HorizontalAlignment="Stretch"
+          <Button x:Name="LoginButton" Classes="accent" Content="{app:T 'Подключиться'}" HorizontalAlignment="Stretch"
                   HorizontalContentAlignment="Center" Padding="0,8" Click="Login_Click" />
           <TextBlock Foreground="#8A90A0" FontSize="11" TextWrapping="Wrap"
-                     Text="Пароль хранится зашифрованным для вашей учётной записи Windows." />
+                     Text="{app:T 'Пароль хранится зашифрованным для вашей учётной записи Windows.'}" />
         </StackPanel>
       </Border>
     </Panel>

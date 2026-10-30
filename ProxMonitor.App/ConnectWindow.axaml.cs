@@ -20,7 +20,7 @@ public partial class ConnectWindow : Window
     public ConnectWindow(ServerEntry entry) : this()
     {
         (NameBox.Text, UrlBox.Text, TokenIdBox.Text, _sshUser) = (entry.Name, entry.Url, entry.TokenId, entry.SshUser);
-        StatusText.Text = $"Вставьте секрет токена для «{entry.Name}» или нажмите «Отмена», чтобы пропустить";
+        StatusText.Text = L.F("Вставьте секрет токена для «{0}» или нажмите «Отмена», чтобы пропустить", entry.Name);
         Opened += (_, _) => SecretBox.Focus();
     }
 
@@ -35,17 +35,17 @@ public partial class ConnectWindow : Window
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
         {
-            StatusText.Text = "Укажите адрес вида https://адрес:8006";
+            StatusText.Text = L.T("Укажите адрес вида https://адрес:8006");
             return;
         }
         if (!tokenId.Contains('@') || !tokenId.Contains('!'))
         {
-            StatusText.Text = "Token ID имеет вид пользователь@realm!имя, например root@pam!monitor";
+            StatusText.Text = L.T("Token ID имеет вид пользователь@realm!имя, например root@pam!monitor");
             return;
         }
         if (secret.Length == 0)
         {
-            StatusText.Text = "Вставьте секрет токена";
+            StatusText.Text = L.T("Вставьте секрет токена");
             return;
         }
 
@@ -59,7 +59,7 @@ public partial class ConnectWindow : Window
         };
 
         ConnectButton.IsEnabled = false;
-        StatusText.Text = "Подключение…";
+        StatusText.Text = L.T("Подключение…");
         var result = await ProxmoxSource.TestAsync(cfg, secret);
         ConnectButton.IsEnabled = true;
 
@@ -73,7 +73,7 @@ public partial class ConnectWindow : Window
             CertText.Text = string.Join(":", Enumerable.Range(0, cert.Length / 2).Select(i => cert.Substring(i * 2, 2)));
             TrustBox.IsChecked = false;
             CertPanel.IsVisible = true;
-            StatusText.Text = "Подтвердите сертификат и нажмите «Подключить» ещё раз";
+            StatusText.Text = L.T("Подтвердите сертификат и нажмите «Подключить» ещё раз");
         }
         else
         {

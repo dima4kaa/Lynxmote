@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
+using ProxMonitor.Core;
 
 namespace ProxMonitor.App;
 
@@ -13,7 +14,9 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var vm = new MainViewModel();
+            var settings = AppSettings.Load();
+            L.English = settings.Language == "en"; // before any text is built
+            var vm = new MainViewModel(settings);
             RequestedThemeVariant = vm.Theme == "Light" ? ThemeVariant.Light : ThemeVariant.Dark;
             if (desktop.Args?.Contains("--demo") == true) vm.EnableDemo();
             desktop.MainWindow = new MainWindow { DataContext = vm };

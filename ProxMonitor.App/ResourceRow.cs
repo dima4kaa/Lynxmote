@@ -21,6 +21,8 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     [ObservableProperty] private bool _canStop;
     [ObservableProperty] private string _guestsText = ""; // nodes only
     [ObservableProperty] private bool _isFilterActive; // nodes only: the table shows just this node's guests
+    [ObservableProperty] private string _addressText = "…"; // IP for the inspector, loaded on first selection
+    public string? Address { get; set; }
 
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _kindText = "";
@@ -61,16 +63,16 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         Running = s.Running;
         Stale = false;
         IsNode = s.Kind == ResourceKind.Node;
-        KindText = s.Kind switch { ResourceKind.Node => "Нода", ResourceKind.Vm => "VM", _ => "LXC" };
-        StatusText = s.Running ? "Работает" : "Остановлен";
+        KindText = s.Kind switch { ResourceKind.Node => L.T("Нода"), ResourceKind.Vm => "VM", _ => "LXC" };
+        StatusText = L.T(s.Running ? "Работает" : "Остановлен");
         CanStart = !IsNode && !s.Running;
         CanStop = !IsNode && s.Running;
 
         Cpu = Math.Round(s.Cpu * 100, 1);
         MemPct = Pct(s.MemUsed, s.MemTotal);
-        MemText = $"{Gb(s.MemUsed)} / {Gb(s.MemTotal)} ГБ";
+        MemText = L.F("{0} / {1} ГБ", Gb(s.MemUsed), Gb(s.MemTotal));
         DiskPct = Pct(s.DiskUsed, s.DiskTotal);
-        DiskText = $"{Gb(s.DiskUsed)} / {Gb(s.DiskTotal)} ГБ";
+        DiskText = L.F("{0} / {1} ГБ", Gb(s.DiskUsed), Gb(s.DiskTotal));
         Temp = s.TempC;
         TempText = s.TempC is { } c ? $"{c:0} °C" : "—";
         NetTotal = s.NetIn + s.NetOut;
@@ -97,7 +99,7 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     public void MarkStale()
     {
         Stale = true;
-        StatusText = "Нет данных";
+        StatusText = L.T("Нет данных");
         Health = Health.Unknown;
     }
 
@@ -109,11 +111,11 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     static string Gb(long bytes) => (bytes / (double)(1L << 30)).ToString("0.#");
 
     static string Rate(long bytesPerSec) => bytesPerSec >= 1 << 20
-        ? $"{bytesPerSec / (double)(1 << 20):0.0} МБ/с"
-        : $"{bytesPerSec / 1024.0:0} КБ/с";
+        ? L.F("{0:0.0} МБ/с", bytesPerSec / (double)(1 << 20))
+        : L.F("{0:0} КБ/с", bytesPerSec / 1024.0);
 
     static string FormatUptime(TimeSpan u) =>
-        u.TotalDays >= 1 ? $"{(int)u.TotalDays} д {u.Hours} ч"
-        : u.TotalHours >= 1 ? $"{u.Hours} ч {u.Minutes} мин"
-        : $"{u.Minutes} мин {u.Seconds} с";
+        u.TotalDays >= 1 ? L.F("{0} д {1} ч", (int)u.TotalDays, u.Hours)
+        : u.TotalHours >= 1 ? L.F("{0} ч {1} мин", u.Hours, u.Minutes)
+        : L.F("{0} мин {1} с", u.Minutes, u.Seconds);
 }

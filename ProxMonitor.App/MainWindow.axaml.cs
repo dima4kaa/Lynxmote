@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using ProxMonitor.Core;
 
 namespace ProxMonitor.App;
@@ -83,6 +84,12 @@ public partial class MainWindow : Window
 
     void OpenSettings(object? sender, RoutedEventArgs e) => new SettingsWindow(Vm).ShowDialog(this);
 
+    void OpenWidgets(object? sender, RoutedEventArgs e) => new WidgetsWindow(Vm).ShowDialog(this);
+
+    void Exit_Click(object? sender, RoutedEventArgs e) => Close();
+
+    void ToggleNodes_Click(object? sender, RoutedEventArgs e) => Vm.NodesCollapsed = !Vm.NodesCollapsed;
+
     async void ConnectServer(object? sender, RoutedEventArgs e)
     {
         if (await new ConnectWindow().ShowDialog<NewServer?>(this) is { } server)
@@ -95,6 +102,18 @@ public partial class MainWindow : Window
 
     void SelectRowOnRightClick(object? sender, PointerPressedEventArgs e)
     {
+        var source = e.Source as Visual;
+        // A click on empty space (not a row, header or scrollbar) clears the selection.
+        if (e.GetCurrentPoint(ResourceGrid).Properties.IsLeftButtonPressed
+            && source?.FindAncestorOfType<DataGridRow>(includeSelf: true) is null
+            && source?.FindAncestorOfType<DataGridColumnHeader>(includeSelf: true) is null
+            && source?.FindAncestorOfType<Avalonia.Controls.Primitives.ScrollBar>(includeSelf: true) is null
+            && source?.FindAncestorOfType<DataGridRowGroupHeader>(includeSelf: true) is null)
+        {
+            ResourceGrid.SelectedItem = null;
+            Vm.Selected = null;
+            return;
+        }
         if (!e.GetCurrentPoint(ResourceGrid).Properties.IsRightButtonPressed) return;
         if ((e.Source as StyledElement)?.DataContext is ResourceRow row && !ResourceGrid.SelectedItems.Contains(row))
             ResourceGrid.SelectedItem = row;
@@ -153,11 +172,11 @@ public partial class MainWindow : Window
         {
             ItemsSource = new Control[]
             {
-                Item(node.IsFilterActive ? "Показать все VM" : "Показать только VM этой ноды", () => Vm.ToggleNodeFilter(node)),
-                Item("Терминал", () => OpenTerminal(node)),
-                Item("Добавить виджет", () => Vm.AddWidget(node)),
+                Item(L.T(node.IsFilterActive ? "Показать все VM" : "Показать только VM этой ноды"), () => Vm.ToggleNodeFilter(node)),
+                Item(L.T("Терминал"), () => OpenTerminal(node)),
+                Item(L.T("Добавить виджет"), () => Vm.AddWidget(node)),
                 new Separator(),
-                Bold(Item("Свойства", () => OpenProperties(node))),
+                Bold(Item(L.T("Свойства"), () => OpenProperties(node))),
             },
         }.Open(c);
     }
@@ -206,19 +225,19 @@ public partial class MainWindow : Window
         foreach (var section in Vm.Sections)
             SectionMenu.Items.Add(Item(section, () => Vm.MoveToSection(rows, section)));
         if (SectionMenu.Items.Count > 0) SectionMenu.Items.Add(new Separator());
-        SectionMenu.Items.Add(Item("Новый раздел…", async () =>
+        SectionMenu.Items.Add(Item(L.T("Новый раздел…"), async () =>
         {
-            if (await PromptAsync("Новый раздел", "Например, Продакшн") is { } name) Vm.MoveToSection(rows, name);
+            if (await PromptAsync(L.T("Новый раздел"), L.T("Например, Продакшн")) is { } name) Vm.MoveToSection(rows, name);
         }));
-        SectionMenu.Items.Add(Item("Убрать из раздела", () => Vm.MoveToSection(rows, null)));
+        SectionMenu.Items.Add(Item(L.T("Убрать из раздела"), () => Vm.MoveToSection(rows, null)));
 
         MoveMenu.Items.Clear();
         foreach (var tab in Vm.Tabs.Where(t => !t.IsAll))
             MoveMenu.Items.Add(Item(tab.Name, () => Vm.MoveToTab(rows, tab)));
         if (MoveMenu.Items.Count == 0)
-            MoveMenu.Items.Add(new MenuItem { Header = "Сначала создайте вкладку кнопкой + внизу", IsEnabled = false });
+            MoveMenu.Items.Add(new MenuItem { Header = L.T("Сначала создайте вкладку кнопкой + внизу"), IsEnabled = false });
         MoveMenu.Items.Add(new Separator());
-        MoveMenu.Items.Add(Item("Убрать из вкладки", () => Vm.MoveToTab(rows, null)));
+        MoveMenu.Items.Add(Item(L.T("Убрать из вкладки"), () => Vm.MoveToTab(rows, null)));
     }
 
     void Details_Click(object? sender, RoutedEventArgs e)
@@ -254,9 +273,9 @@ public partial class MainWindow : Window
         if (rows.Count == 0) return;
         if (action is PowerAction.Stop or PowerAction.Reboot)
         {
-            var verb = action == PowerAction.Stop ? "Остановить" : "Перезагрузить";
-            var what = rows.Count == 1 ? rows[0].Name : $"{rows.Count} шт.";
-            if (!await ConfirmAsync($"{verb} {what}?", "Несохранённые данные внутри гостевой системы могут быть потеряны.", verb))
+            var verb = L.T(action == PowerAction.Stop ? "Остановить" : "Перезагрузить");
+            var what = rows.Count == 1 ? rows[0].Name : L.F("{0} шт.", rows.Count);
+            if (!await ConfirmAsync($"{verb} {what}?", L.T("Несохранённые данные внутри гостевой системы могут быть потеряны."), verb))
                 return;
         }
         await Vm.RunAsync(action, rows);
@@ -313,24 +332,56 @@ public partial class MainWindow : Window
             };
             return item;
         }
-        var menu = new List<Control>
+        var menu = new List<Control>();
+        if (w.IsServer)
         {
-            Toggle("CPU", w.Cpu, v => w.Cpu = v),
-            Toggle("RAM", w.Ram, v => w.Ram = v),
-            Toggle("Диск", w.Disk, v => w.Disk = v),
-            Toggle("Температура", w.Temp, v => w.Temp = v),
-            Toggle("Сеть", w.Net, v => w.Net = v),
-            new Separator(),
-            Item("Удалить виджет", () => Vm.RemoveWidget(w)),
-        };
-        if (w.Row is { } row)
+            menu.AddRange([
+                Toggle("CPU", w.Cpu, v => w.Cpu = v),
+                Toggle("RAM", w.Ram, v => w.Ram = v),
+                Toggle(L.T("Диск"), w.Disk, v => w.Disk = v),
+                Toggle(L.T("Температура"), w.Temp, v => w.Temp = v),
+                Toggle(L.T("Сеть"), w.Net, v => w.Net = v),
+                new Separator(),
+            ]);
+        }
+        menu.Add(Item(L.T("Удалить виджет"), () => Vm.RemoveWidget(w)));
+        // Multi-server widgets point at their first server, the command widget at its target.
+        if (w.Row is { } row && (w.IsServer || w.IsCommand))
         {
-            menu.Insert(0, Item(row.IsNode ? $"Перейти к ноде {row.Name}" : $"Перейти к {row.Name}", () => GoTo(row)));
+            menu.Insert(0, Item(L.F(row.IsNode ? "Перейти к ноде {0}" : "Перейти к {0}", row.Name), () => GoTo(row)));
             menu.Insert(1, new Separator());
             menu.Add(new Separator());
-            menu.Add(Bold(Item("Свойства", () => OpenProperties(row))));
+            menu.Add(Bold(Item(L.T("Свойства"), () => OpenProperties(row))));
         }
         new ContextMenu { ItemsSource = menu }.Open(c);
+    }
+
+    async void WidgetRun_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not WidgetVm { Row: { } row } w) return;
+        w.CommandBusy = true;
+        w.CommandStatus = L.T("Выполняется…");
+        var (terminal, problem) = await TerminalWindow.ConnectSavedAsync(row, Vm);
+        if (terminal is null)
+        {
+            (w.CommandOutput, w.CommandStatus, w.CommandBusy) = ("", problem ?? "", false);
+            return;
+        }
+        using (terminal)
+        {
+            try
+            {
+                var r = await terminal.RunAsync(w.Config.Command, default);
+                // The card is small: keep the tail, where the answer usually is.
+                w.CommandOutput = string.Join('\n', r.Output.Split('\n').TakeLast(8));
+                w.CommandStatus = L.F(r.ExitCode == 0 ? "Готово в {0:HH:mm:ss}" : "Код {1} в {0:HH:mm:ss}", DateTime.Now, r.ExitCode);
+            }
+            catch (Exception ex)
+            {
+                (w.CommandOutput, w.CommandStatus) = ("", ex.Message);
+            }
+        }
+        w.CommandBusy = false;
     }
 
     // ---- tabs and servers ----
@@ -350,16 +401,16 @@ public partial class MainWindow : Window
     {
         if ((e.Source as StyledElement)?.DataContext is not SheetTab { IsAll: false } tab) return;
         e.Handled = true;
-        OpenMenu((Control)e.Source!, Item("Удалить вкладку", () => Vm.DeleteTab(tab)));
+        OpenMenu((Control)e.Source!, Item(L.T("Удалить вкладку"), () => Vm.DeleteTab(tab)));
     }
 
     void Sources_ContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if ((e.Source as StyledElement)?.DataContext is not SourceState source) return;
         e.Handled = true;
-        OpenMenu((Control)e.Source!, Item("Отключить сервер", async () =>
+        OpenMenu((Control)e.Source!, Item(L.T("Отключить сервер"), async () =>
         {
-            if (await ConfirmAsync($"Отключить «{source.Title}»?", "Сервер пропадёт из таблицы, токен будет удалён.", "Отключить"))
+            if (await ConfirmAsync(L.F("Отключить «{0}»?", source.Title), L.T("Сервер пропадёт из таблицы, токен будет удалён."), L.T("Отключить")))
                 Vm.RemoveSource(source);
         }));
     }
@@ -390,8 +441,8 @@ public partial class MainWindow : Window
         if (SkippedConfirmations.Contains(ok)) return true;
         var yes = new Button { Content = ok, Padding = new Thickness(16, 6) };
         yes.Classes.Add("accent");
-        var no = new Button { Content = "Отмена", Padding = new Thickness(16, 6) };
-        var skip = new CheckBox { Content = "Не показывать в этой сессии", FontSize = 12 };
+        var no = new Button { Content = L.T("Отмена"), Padding = new Thickness(16, 6) };
+        var skip = new CheckBox { Content = L.T("Не показывать в этой сессии"), FontSize = 12 };
         var body = new StackPanel
         {
             Spacing = 12,
@@ -408,9 +459,9 @@ public partial class MainWindow : Window
     async Task<string?> PromptAsync(string title, string watermark)
     {
         var box = new TextBox { Watermark = watermark };
-        var ok = new Button { Content = "Создать", Padding = new Thickness(16, 6), IsDefault = true };
+        var ok = new Button { Content = L.T("Создать"), Padding = new Thickness(16, 6), IsDefault = true };
         ok.Classes.Add("accent");
-        var cancel = new Button { Content = "Отмена", Padding = new Thickness(16, 6) };
+        var cancel = new Button { Content = L.T("Отмена"), Padding = new Thickness(16, 6) };
         var dialog = Dialog(box, title, box, cancel, ok);
         ok.Click += (_, _) => dialog.Close(box.Text?.Trim());
         cancel.Click += (_, _) => dialog.Close(null);

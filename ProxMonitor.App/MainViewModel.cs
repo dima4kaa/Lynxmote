@@ -26,11 +26,89 @@ public partial class SourceState(IResourceSource source, Func<string, Thresholds
     [ObservableProperty] private bool _online = true;
 }
 
+/// <summary>One line of a multi-server widget: who, a short value, and a 0..100 bar.</summary>
+public sealed record WidgetLine(ResourceRow Row, string Value, double Pct);
+
 /// <summary>A floating card over the table; Row is null until its resource has loaded.</summary>
 public partial class WidgetVm(WidgetConfig config) : ObservableObject
 {
     public WidgetConfig Config { get; } = config;
+    public bool IsServer => Config.Kind == WidgetKind.Server;
+    public bool IsGroup => Config.Kind == WidgetKind.Group;
+    public bool IsSummary => Config.Kind == WidgetKind.Summary;
+    public bool IsTop => Config.Kind == WidgetKind.Top;
+    public bool IsCommand => Config.Kind == WidgetKind.Command;
+    public bool IsList => IsGroup || IsTop;
+    /// <summary>The user's name, or the kind's name in the current language.</summary>
+    public string Title => Config.Title.Length > 0 ? Config.Title : L.T(KindName(Config.Kind));
+
+    public static string KindName(string kind) => kind switch
+    {
+        WidgetKind.Group => "Группа серверов",
+        WidgetKind.Summary => "Сводка по выборке",
+        WidgetKind.Top => "Самые нагруженные",
+        WidgetKind.Command => "Быстрая команда",
+        _ => "Виджеты",
+    };
+
+    /// <summary>What the widget watches, for the widget builder's list.</summary>
+    public string ScopeText => IsServer || IsCommand ? Row?.Name ?? "—"
+        : Config.Keys.Count == 0 ? L.T("Все VM и контейнеры")
+        : L.F("Серверов: {0}", Config.Keys.Count);
+
     [ObservableProperty] private ResourceRow? _row;
+    [ObservableProperty] private IReadOnlyList<WidgetLine> _lines = [];
+    [ObservableProperty] private string _summaryRunning = "—";
+    [ObservableProperty] private string _summaryCpu = "—";
+    [ObservableProperty] private string _summaryTemp = "—";
+    [ObservableProperty] private int _summaryProblems;
+    [ObservableProperty] private string _commandOutput = "";
+    [ObservableProperty] private string _commandStatus = "";
+    [ObservableProperty] private bool _commandBusy;
+
+    /// <summary>Recomputes what the widget shows from the current rows.</summary>
+    public void Refresh(IReadOnlyDictionary<string, ResourceRow> rows)
+    {
+        if (IsServer)
+        {
+            Row = rows.GetValueOrDefault(Config.Key);
+            return;
+        }
+        // An empty selection means every VM and container.
+        var pool = Config.Keys.Count == 0
+            ? rows.Values.Where(r => !r.IsNode).ToList()
+            : Config.Keys.Select(rows.GetValueOrDefault).OfType<ResourceRow>().ToList();
+        Row = pool.FirstOrDefault();
+        if (IsGroup)
+        {
+            Lines = pool.Select(r => new WidgetLine(r, r.Running ? L.F("CPU {0:0}%  RAM {1:0}%", r.Cpu, r.MemPct) : r.StatusText, r.Cpu)).ToList();
+        }
+        else if (IsTop)
+        {
+            Func<ResourceRow, double> metric = Config.Metric switch
+            {
+                "ram" => r => r.MemPct,
+                "disk" => r => r.DiskPct,
+                "temp" => r => r.Temp ?? 0,
+                _ => r => r.Cpu,
+            };
+            var unit = Config.Metric == "temp" ? " °C" : "%";
+            Lines = pool.Where(r => r.Running).OrderByDescending(metric).Take(Math.Max(1, Config.Count))
+                .Select(r => new WidgetLine(r, $"{metric(r):0}{unit}", Math.Min(100, metric(r)))).ToList();
+        }
+        else if (IsSummary)
+        {
+            var running = pool.Where(r => r.Running && !r.Stale).ToList();
+            SummaryRunning = $"{running.Count}/{pool.Count}";
+            SummaryCpu = running.Count == 0 ? "—" : $"{running.Average(r => r.Cpu):0}%";
+            // Only nodes have sensors: take the nodes the selection runs on.
+            var temps = rows.Values
+                .Where(n => n.IsNode && n.Temp is not null && pool.Any(r => r.SourceKey == n.SourceKey && r.Node == n.Node))
+                .Select(n => n.Temp!.Value).ToList();
+            SummaryTemp = temps.Count == 0 ? "—" : $"{temps.Max():0} °C";
+            SummaryProblems = pool.Count(r => r.HasProblem);
+        }
+    }
     [ObservableProperty] private double _x = config.X;
     [ObservableProperty] private double _y = config.Y;
     [ObservableProperty] private bool _cpu = config.Cpu;
@@ -51,15 +129,16 @@ public partial class WidgetVm(WidgetConfig config) : ObservableObject
 public partial class MainViewModel : ObservableObject
 {
     const int MaxEvents = 300;
-    public const string NoSection = "Без раздела";
+    public static string NoSection => L.T("Без раздела");
 
-    readonly AppSettings _settings = AppSettings.Load();
+    readonly AppSettings _settings;
     readonly Dictionary<string, ResourceRow> _rows = [];
 
-    public MainViewModel()
+    public MainViewModel(AppSettings? settings = null)
     {
+        _settings = settings ?? AppSettings.Load();
         View = new DataGridCollectionView(Rows) { Filter = o => Matches((ResourceRow)o) };
-        Tabs.Add(new SheetTab("Все", isAll: true));
+        Tabs.Add(new SheetTab(L.T("Все"), isAll: true));
         foreach (var name in _settings.Tabs) Tabs.Add(new SheetTab(name));
         _selectedTab = Tabs[0];
         foreach (var w in _settings.Widgets) Widgets.Add(new WidgetVm(w));
@@ -86,6 +165,27 @@ public partial class MainViewModel : ObservableObject
     public IReadOnlyList<string> Sections => _settings.Sections;
     public bool HasSources => Sources.Count > 0;
     public string Theme => _settings.Theme;
+
+    public string Language
+    {
+        get => _settings.Language;
+        set
+        {
+            _settings.Language = value;
+            _settings.Save();
+        }
+    }
+
+    public bool NodesCollapsed
+    {
+        get => _settings.NodesCollapsed;
+        set
+        {
+            _settings.NodesCollapsed = value;
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>Raised for every new event; the window turns warnings into toasts.</summary>
     public event Action<AlertEvent>? Alert;
@@ -120,6 +220,17 @@ public partial class MainViewModel : ObservableObject
     partial void OnSearchChanged(string value) => View.Refresh();
     partial void OnOnlyProblemsChanged(bool value) => View.Refresh();
     partial void OnSelectedTabChanged(SheetTab? value) => View.Refresh();
+
+    partial void OnSelectedChanged(ResourceRow? value) => _ = LoadAddressAsync(value);
+
+    /// <summary>Found addresses are kept; a miss (no guest agent yet) is retried on the next selection.</summary>
+    async Task LoadAddressAsync(ResourceRow? row)
+    {
+        if (row is null || row.Address is not null || SourceOf(row) is not { } source) return;
+        row.AddressText = "…";
+        row.Address = await source.AddressAsync(row.LocalId, row.Node, default);
+        row.AddressText = row.Address ?? (row.LocalId.StartsWith("qemu/") ? L.T("нужен qemu-guest-agent") : L.T("неизвестен"));
+    }
 
     partial void OnNodeFilterChanged(string? value)
     {
@@ -281,14 +392,37 @@ public partial class MainViewModel : ObservableObject
 
     // ---- widgets ----
 
+    /// <summary>New widgets go side by side in rows instead of piling up on one spot.</summary>
+    (double X, double Y) NextWidgetSpot()
+    {
+        var n = Widgets.Count;
+        return (24 + 266 * (n % 5), 24 + 210 * (n / 5 % 3));
+    }
+
     public void AddWidget(ResourceRow row)
     {
-        var offset = 24 + 28 * (Widgets.Count % 8);
-        var cfg = new WidgetConfig { Key = row.Key, X = offset, Y = offset };
+        var (x, y) = NextWidgetSpot();
+        var cfg = new WidgetConfig { Key = row.Key, X = x, Y = y };
         _settings.Widgets.Add(cfg);
         _settings.Save();
         Widgets.Add(new WidgetVm(cfg) { Row = row });
     }
+
+    /// <summary>A widget made in the widget builder.</summary>
+    public void AddWidget(WidgetConfig cfg)
+    {
+        (cfg.X, cfg.Y) = NextWidgetSpot();
+        _settings.Widgets.Add(cfg);
+        _settings.Save();
+        var w = new WidgetVm(cfg);
+        w.Refresh(_rows);
+        Widgets.Add(w);
+    }
+
+    /// <summary>Everything a widget can watch: nodes first, then VMs and containers.</summary>
+    public IReadOnlyList<ResourceRow> AllResources => Rows.OrderBy(r => !r.IsNode).ThenBy(r => r.Name).ToList();
+
+    public ResourceRow? RowOf(string key) => _rows.GetValueOrDefault(key);
 
     public void RemoveWidget(WidgetVm w)
     {
@@ -310,7 +444,7 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception e)
             {
-                Push(new AlertEvent(DateTime.Now, Severity.Warning, r.Name, "Ошибка: " + ProxmoxSource.Describe(e), r.Key));
+                Push(new AlertEvent(DateTime.Now, Severity.Warning, r.Name, L.F("Ошибка: {0}", ProxmoxSource.Describe(e)), r.Key));
             }
         }
     }
@@ -354,7 +488,7 @@ public partial class MainViewModel : ObservableObject
             if (!s.Online)
             {
                 s.Online = true;
-                Push(new AlertEvent(DateTime.Now, Severity.Info, s.Title, "Связь восстановлена"));
+                Push(new AlertEvent(DateTime.Now, Severity.Info, s.Title, L.T("Связь восстановлена")));
             }
             Merge(s, snaps);
             foreach (var e in s.Engine.Observe(snaps, DateTime.Now))
@@ -365,7 +499,7 @@ public partial class MainViewModel : ObservableObject
             if (Sources.Contains(s) && s.Online)
             {
                 s.Online = false;
-                Push(new AlertEvent(DateTime.Now, Severity.Critical, s.Title, "Нет связи: " + ProxmoxSource.Describe(e)));
+                Push(new AlertEvent(DateTime.Now, Severity.Critical, s.Title, L.F("Нет связи: {0}", ProxmoxSource.Describe(e))));
                 foreach (var row in Rows.Where(r => r.SourceKey == s.Source.Key)) row.MarkStale();
             }
         }
@@ -401,7 +535,7 @@ public partial class MainViewModel : ObservableObject
         }
         foreach (var gone in Rows.Where(r => r.SourceKey == s.Source.Key && !seen.Contains(r.Key)).ToList())
             RemoveRow(gone);
-        foreach (var w in Widgets) w.Row = _rows.GetValueOrDefault(w.Config.Key);
+        foreach (var w in Widgets) w.Refresh(_rows);
         if (OnlyProblems) View.Refresh(); // the problem set changes every poll
     }
 
@@ -412,7 +546,7 @@ public partial class MainViewModel : ObservableObject
         _rows.Remove(row.Key);
         if (Selected == row) Selected = null;
         if (row.IsNode && NodeFilter == row.Node) NodeFilter = null;
-        foreach (var w in Widgets.Where(w => w.Row == row)) w.Row = null;
+        foreach (var w in Widgets) w.Refresh(_rows);
     }
 
     void UpdateSummary()
@@ -430,7 +564,7 @@ public partial class MainViewModel : ObservableObject
         foreach (var n in nodes)
         {
             var mine = guests.Where(g => g.SourceKey == n.SourceKey && g.Node == n.Node).ToList();
-            n.GuestsText = $"{mine.Count(g => g.Running)} из {mine.Count} запущено";
+            n.GuestsText = L.F("{0} из {1} запущено", mine.Count(g => g.Running), mine.Count);
         }
     }
 

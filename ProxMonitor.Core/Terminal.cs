@@ -92,7 +92,7 @@ public sealed class SshTerminal : ITerminal
         {
             client.Dispose();
             if (seen is not null && seen != pinnedHostKey) return new(null, UnknownHostKey: seen);
-            return new(null, Error: e is SshAuthenticationException ? "Неверный логин или пароль" : e.Message);
+            return new(null, Error: e is SshAuthenticationException ? L.T("Неверный логин или пароль") : e.Message);
         }
     }
 
@@ -174,7 +174,7 @@ public sealed class DemoTerminal(string host) : ITerminal
                      Loaded: loaded (/lib/systemd/system/pveproxy.service; enabled)
                      Active: active (running) since Mon 2026-08-10 09:14:02 MSK; 2 months 18 days ago
                 """, 0),
-            _ => ($"bash: {parts[0]}: команда недоступна в демо-режиме\nПопробуйте: uptime, df -h, free -h, qm list, pct list, pveversion, ls, cd, pwd", 127),
+            _ => (L.F("bash: {0}: команда недоступна в демо-режиме\nПопробуйте: uptime, df -h, free -h, qm list, pct list, pveversion, ls, cd, pwd", parts[0]), 127),
         };
         return new(output, code, sw.Elapsed);
     }

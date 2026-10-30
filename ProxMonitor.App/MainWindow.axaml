@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:app="using:ProxMonitor.App"
         xmlns:core="using:ProxMonitor.Core"
@@ -135,7 +135,7 @@
 
     <!-- widgets -->
     <Style Selector="Border.widget">
-      <Setter Property="Width" Value="230" />
+      <Setter Property="Width" Value="250" />
       <Setter Property="Padding" Value="12,10" />
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="Background" Value="{DynamicResource Surface}" />
@@ -163,17 +163,32 @@
     <Border DockPanel.Dock="Top" Height="48" Background="{DynamicResource Surface}"
             BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"
             PointerPressed="TitleBar_PointerPressed">
-      <DockPanel Margin="16,0,150,0">
-        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-          <Border Width="22" Height="22" CornerRadius="6" Background="#5C7CFA">
-            <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="13"
-                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-          </Border>
-          <TextBlock Text="ProxMonitor" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
-        </StackPanel>
+      <DockPanel Margin="10,0,150,0">
+        <!-- App menu, like DaVinci Resolve: click the name -->
+        <Button DockPanel.Dock="Left" Classes="icon" Padding="6,5" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Border Width="22" Height="22" CornerRadius="6" Background="#5C7CFA">
+              <TextBlock Text="P" Foreground="White" FontWeight="Bold" FontSize="13"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <TextBlock Text="ProxMonitor" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+            <PathIcon Data="{StaticResource IconChevronDown}" Width="10" Height="10" Foreground="{DynamicResource Muted}" />
+          </StackPanel>
+          <Button.Flyout>
+            <MenuFlyout Placement="BottomEdgeAlignedLeft">
+              <MenuItem Header="{app:T 'Подключить сервер…'}" Click="ConnectServer" />
+              <MenuItem Header="{app:T 'Открыть демо-кластер'}" Click="OpenDemo" />
+              <Separator />
+              <MenuItem Header="{app:T 'Виджеты…'}" Click="OpenWidgets" />
+              <MenuItem Header="{app:T 'Настройки…'}" Click="OpenSettings" />
+              <Separator />
+              <MenuItem Header="{app:T 'Выход'}" Click="Exit_Click" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
 
         <TextBox x:Name="SearchBox" DockPanel.Dock="Left" Classes="search" Width="280" Margin="28,0,0,0" VerticalAlignment="Center"
-                 Watermark="Поиск по имени или ноде  (Ctrl+F)" Text="{Binding Search}" KeyDown="Search_KeyDown">
+                 Watermark="{app:T 'Поиск по имени или ноде  (Ctrl+F)'}" Text="{Binding Search}" KeyDown="Search_KeyDown">
           <TextBox.InnerLeftContent>
             <PathIcon Data="{StaticResource IconSearch}" Width="14" Height="14" Margin="10,0,4,0"
                       Foreground="{DynamicResource Muted}" />
@@ -181,29 +196,20 @@
         </TextBox>
 
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-          <ToggleButton Classes="icon" IsChecked="{Binding OnlyProblems}" ToolTip.Tip="Показать только проблемные">
+          <ToggleButton Classes="icon" IsChecked="{Binding OnlyProblems}" ToolTip.Tip="{app:T 'Показать только проблемные'}">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <PathIcon Data="{StaticResource IconWarning}" Width="14" Height="14" Foreground="#F59E0B" />
               <TextBlock Text="{Binding ProblemsCount}" FontSize="13" VerticalAlignment="Center" />
             </StackPanel>
           </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding InspectorOpen}" ToolTip.Tip="Инспектор  (Ctrl+I)">
+          <ToggleButton Classes="icon" IsChecked="{Binding InspectorOpen}" ToolTip.Tip="{app:T 'Инспектор  (Ctrl+I)'}">
             <PathIcon Data="{StaticResource IconPanel}" Width="15" Height="15" />
           </ToggleButton>
-          <ToggleButton Classes="icon" IsChecked="{Binding IsLogOpen}" ToolTip.Tip="Журнал событий">
+          <ToggleButton Classes="icon" IsChecked="{Binding IsLogOpen}" ToolTip.Tip="{app:T 'Журнал событий'}">
             <PathIcon Data="{StaticResource IconBell}" Width="15" Height="15" />
           </ToggleButton>
-          <Button Classes="icon" Click="OpenSettings" ToolTip.Tip="Настройки предупреждений">
-            <PathIcon Data="{StaticResource IconSettings}" Width="15" Height="15" />
-          </Button>
-          <Button Classes="icon" Click="ToggleTheme" ToolTip.Tip="Светлая / тёмная тема">
+          <Button Classes="icon" Click="ToggleTheme" ToolTip.Tip="{app:T 'Светлая / тёмная тема'}">
             <PathIcon Data="{StaticResource IconTheme}" Width="15" Height="15" />
-          </Button>
-          <Button Classes="accent" Click="ConnectServer" Padding="12,6" CornerRadius="8" Margin="6,0,0,0">
-            <StackPanel Orientation="Horizontal" Spacing="6">
-              <PathIcon Data="{StaticResource IconPlus}" Width="12" Height="12" />
-              <TextBlock Text="Подключить сервер" FontSize="13" />
-            </StackPanel>
           </Button>
         </StackPanel>
 
@@ -211,18 +217,18 @@
                     HorizontalAlignment="Center" IsVisible="{Binding HasSources}">
           <StackPanel Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="statValue" Text="{Binding NodesSummary}" />
-            <TextBlock Classes="statLabel" Text="нод" />
+            <TextBlock Classes="statLabel" Text="{app:T 'нод'}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="statValue" Text="{Binding GuestsSummary}" />
-            <TextBlock Classes="statLabel" Text="VM и LXC" />
+            <TextBlock Classes="statLabel" Text="{app:T 'VM и LXC'}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="statLabel" Text="CPU" />
             <TextBlock Classes="statValue" Text="{Binding CpuSummary}" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Spacing="5">
-            <TextBlock Classes="statLabel" Text="макс." />
+            <TextBlock Classes="statLabel" Text="{app:T 'макс.'}" />
             <TextBlock Classes="statValue" Text="{Binding TempSummary}" />
           </StackPanel>
         </StackPanel>
@@ -242,7 +248,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="app:SourceState">
-              <Border Classes="chip" ToolTip.Tip="ПКМ — отключить сервер">
+              <Border Classes="chip" ToolTip.Tip="{app:T 'ПКМ — отключить сервер'}">
                 <StackPanel Orientation="Horizontal" Spacing="7">
                   <Ellipse Width="7" Height="7" VerticalAlignment="Center"
                            Fill="{Binding Online, Converter={x:Static app:Converters.StatusBrush}}" />
@@ -270,14 +276,14 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <Button x:Name="NewTabButton" Classes="icon" ToolTip.Tip="Новая вкладка">
+          <Button x:Name="NewTabButton" Classes="icon" ToolTip.Tip="{app:T 'Новая вкладка'}">
             <PathIcon Data="{StaticResource IconPlus}" Width="11" Height="11" />
             <Button.Flyout>
               <Flyout Placement="TopEdgeAlignedLeft">
                 <StackPanel Spacing="10" Width="230">
-                  <TextBlock Text="Новая вкладка" FontWeight="SemiBold" />
-                  <TextBox Text="{Binding NewTabName}" Watermark="Например, Продакшн" KeyDown="NewTab_KeyDown" />
-                  <Button Classes="accent" Content="Создать" HorizontalAlignment="Right" Click="CreateTab_Click" />
+                  <TextBlock Text="{app:T 'Новая вкладка'}" FontWeight="SemiBold" />
+                  <TextBox Text="{Binding NewTabName}" Watermark="{app:T 'Например, Продакшн'}" KeyDown="NewTab_KeyDown" />
+                  <Button Classes="accent" Content="{app:T 'Создать'}" HorizontalAlignment="Right" Click="CreateTab_Click" />
                 </StackPanel>
               </Flyout>
             </Button.Flyout>
@@ -288,8 +294,37 @@
 
     <!-- Nodes: physical hosts as cards; click one to see only its guests -->
     <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" IsVisible="{Binding HasSources}">
-      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-        <ItemsControl ItemsSource="{Binding Nodes}" Margin="12,10">
+      <DockPanel>
+      <!-- Collapsed: one line of dots and names instead of cards -->
+      <Button DockPanel.Dock="Left" Classes="icon" Margin="6,0,0,0" VerticalAlignment="Center"
+              Click="ToggleNodes_Click" ToolTip.Tip="{app:T 'Свернуть или развернуть ноды'}">
+        <Panel>
+          <PathIcon Data="{StaticResource IconChevronDown}" Width="12" Height="12" IsVisible="{Binding !NodesCollapsed}" />
+          <PathIcon Data="{StaticResource IconChevronRight}" Width="12" Height="12" IsVisible="{Binding NodesCollapsed}" />
+        </Panel>
+      </Button>
+      <ItemsControl ItemsSource="{Binding Nodes}" Margin="4,6" IsVisible="{Binding NodesCollapsed}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="4" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="app:ResourceRow">
+            <Border Classes="chip" Cursor="Hand" BorderThickness="1"
+                    BorderBrush="{Binding IsFilterActive, Converter={x:Static app:Converters.FilterBorder}}"
+                    PointerPressed="Node_PointerPressed" ContextRequested="Node_ContextRequested">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
+                <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold" />
+                <TextBlock Classes="muted" FontSize="12" Text="{Binding Cpu, StringFormat='{}{0:0}%'}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" IsVisible="{Binding !NodesCollapsed}">
+        <ItemsControl ItemsSource="{Binding Nodes}" Margin="6,10,12,10">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <StackPanel Orientation="Horizontal" Spacing="10" />
@@ -328,6 +363,7 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </ScrollViewer>
+      </DockPanel>
     </Border>
 
     <Panel>
@@ -337,12 +373,12 @@
           <Border BorderBrush="{DynamicResource Line}" BorderThickness="1,0,0,0">
             <DockPanel>
               <DockPanel DockPanel.Dock="Top" Margin="16,12,8,8">
-                <Button DockPanel.Dock="Right" Classes="icon" Content="Очистить" FontSize="12"
+                <Button DockPanel.Dock="Right" Classes="icon" Content="{app:T 'Очистить'}" FontSize="12"
                         Command="{Binding ClearEventsCommand}" />
-                <TextBlock Text="Журнал событий" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="{app:T 'Журнал событий'}" FontWeight="SemiBold" VerticalAlignment="Center" />
               </DockPanel>
               <ListBox Classes="log" ItemsSource="{Binding Events}" Background="Transparent" DoubleTapped="Log_DoubleTapped"
-                       ToolTip.Tip="Двойной клик — показать сервер в таблице">
+                       ToolTip.Tip="{app:T 'Двойной клик — показать сервер в таблице'}">
                 <ListBox.ItemTemplate>
                   <DataTemplate x:DataType="core:AlertEvent">
                     <DockPanel>
@@ -372,9 +408,9 @@
           <Panel>
             <StackPanel IsVisible="{Binding Selected, Converter={x:Static ObjectConverters.IsNull}}"
                         VerticalAlignment="Center" Margin="32" Spacing="6">
-              <TextBlock Text="Ничего не выбрано" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              <TextBlock Text="{app:T 'Ничего не выбрано'}" FontWeight="SemiBold" HorizontalAlignment="Center" />
               <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                         Text="Выберите VM в таблице или ноду сверху, чтобы увидеть её состояние и действия" />
+                         Text="{app:T 'Выберите VM в таблице или ноду сверху, чтобы увидеть её состояние и действия'}" />
             </StackPanel>
             <ContentControl Content="{Binding Selected}">
               <ContentControl.ContentTemplate>
@@ -390,7 +426,7 @@
                         </Border>
                         <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                         <TextBlock Classes="muted" FontSize="12">
-                          <Run Text="{Binding KindText}" /><Run Text=", нода " /><Run Text="{Binding Node}" />
+                          <Run Text="{Binding KindText}" /><Run Text="{app:T ', нода '}" /><Run Text="{Binding Node}" />
                         </TextBlock>
                       </StackPanel>
 
@@ -406,41 +442,45 @@
                         <StackPanel Spacing="6">
                           <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding MemText}" />
-                            <TextBlock Classes="k" Text="Память" />
+                            <TextBlock Classes="k" Text="{app:T 'Память'}" />
                           </DockPanel>
                           <ProgressBar Classes="thin" Value="{Binding MemPct}" Foreground="{Binding MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
                         </StackPanel>
                         <StackPanel Spacing="6">
                           <DockPanel>
                             <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding DiskText}" />
-                            <TextBlock Classes="k" Text="Диск" />
+                            <TextBlock Classes="k" Text="{app:T 'Диск'}" />
                           </DockPanel>
                           <ProgressBar Classes="thin" Value="{Binding DiskPct}" Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
                         </StackPanel>
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="10">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
                           <StackPanel Spacing="2">
-                            <TextBlock Classes="k" Text="Температура" />
+                            <TextBlock Classes="k" Text="{app:T 'Температура'}" />
                             <TextBlock Classes="v" Text="{Binding TempText}" Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
                           </StackPanel>
                           <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Classes="k" Text="Аптайм" />
+                            <TextBlock Classes="k" Text="{app:T 'Аптайм'}" />
                             <TextBlock Classes="v" Text="{Binding UptimeText}" />
                           </StackPanel>
                           <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2">
-                            <TextBlock Classes="k" Text="Сеть" />
+                            <TextBlock Classes="k" Text="{app:T 'Сеть'}" />
                             <TextBlock Classes="v" Text="{Binding NetText}" />
+                          </StackPanel>
+                          <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="2">
+                            <TextBlock Classes="k" Text="{app:T 'IP-адрес'}" />
+                            <SelectableTextBlock FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding AddressText}" />
                           </StackPanel>
                         </Grid>
                       </StackPanel>
 
                       <StackPanel Spacing="6">
-                        <Button Classes="inspector accent" Content="Запустить" IsVisible="{Binding CanStart}" Click="InspectorStart_Click" />
-                        <Button Classes="inspector" Content="Перезагрузить…" IsVisible="{Binding CanStop}" Click="InspectorReboot_Click" />
-                        <Button Classes="inspector" Content="Остановить…" IsVisible="{Binding CanStop}" Click="InspectorStop_Click" />
-                        <Button Classes="inspector" Content="Создать снапшот" IsVisible="{Binding IsGuest}" Click="InspectorSnapshot_Click" />
-                        <Button Classes="inspector" Content="Терминал" Click="InspectorTerminal_Click" />
-                        <Button Classes="inspector" Content="Добавить виджет" Click="InspectorWidget_Click" />
-                        <Button Classes="inspector" Content="Свойства" Click="InspectorProperties_Click" />
+                        <Button Classes="inspector accent" Content="{app:T 'Запустить'}" IsVisible="{Binding CanStart}" Click="InspectorStart_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Перезагрузить…'}" IsVisible="{Binding CanStop}" Click="InspectorReboot_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Остановить…'}" IsVisible="{Binding CanStop}" Click="InspectorStop_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Создать снапшот'}" IsVisible="{Binding IsGuest}" Click="InspectorSnapshot_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Терминал'}" Click="InspectorTerminal_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Добавить виджет'}" Click="InspectorWidget_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Свойства'}" Click="InspectorProperties_Click" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>
@@ -463,22 +503,22 @@
           </DataGrid.Styles>
           <DataGrid.ContextMenu>
             <ContextMenu Opening="RowMenu_Opening">
-              <MenuItem x:Name="StartItem" Header="Запустить" Click="Start_Click" />
-              <MenuItem x:Name="RebootItem" Header="Перезагрузить…" Click="Reboot_Click" />
-              <MenuItem x:Name="StopItem" Header="Остановить…" Click="Stop_Click" />
-              <MenuItem x:Name="SnapshotItem" Header="Создать снапшот" Click="Snapshot_Click" />
+              <MenuItem x:Name="StartItem" Header="{app:T 'Запустить'}" Click="Start_Click" />
+              <MenuItem x:Name="RebootItem" Header="{app:T 'Перезагрузить…'}" Click="Reboot_Click" />
+              <MenuItem x:Name="StopItem" Header="{app:T 'Остановить…'}" Click="Stop_Click" />
+              <MenuItem x:Name="SnapshotItem" Header="{app:T 'Создать снапшот'}" Click="Snapshot_Click" />
               <Separator x:Name="PowerSeparator" />
-              <MenuItem x:Name="SectionMenu" Header="Переместить в раздел" />
-              <MenuItem x:Name="MoveMenu" Header="Переместить во вкладку" />
-              <MenuItem Header="Добавить виджет" Click="AddWidget_Click" />
+              <MenuItem x:Name="SectionMenu" Header="{app:T 'Переместить в раздел'}" />
+              <MenuItem x:Name="MoveMenu" Header="{app:T 'Переместить во вкладку'}" />
+              <MenuItem Header="{app:T 'Добавить виджет'}" Click="AddWidget_Click" />
               <Separator />
               <!-- Last, like Properties in Windows menus. -->
-              <MenuItem Header="Свойства" Click="Details_Click" FontWeight="SemiBold" />
+              <MenuItem Header="{app:T 'Свойства'}" Click="Details_Click" FontWeight="SemiBold" />
             </ContextMenu>
           </DataGrid.ContextMenu>
 
           <DataGrid.Columns>
-            <DataGridTemplateColumn Header="Статус" SortMemberPath="Running" Width="132">
+            <DataGridTemplateColumn Header="{app:T 'Статус'}" SortMemberPath="Running" Width="132">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <Border Classes="pill" Margin="10,0" HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -492,7 +532,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Имя" SortMemberPath="Name" Width="*" MinWidth="180">
+            <DataGridTemplateColumn Header="{app:T 'Имя'}" SortMemberPath="Name" Width="*" MinWidth="180">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Text="{Binding Name}" FontWeight="Medium" Margin="12,0" TextTrimming="CharacterEllipsis" />
@@ -500,7 +540,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Тип" SortMemberPath="KindText" Width="70">
+            <DataGridTemplateColumn Header="{app:T 'Тип'}" SortMemberPath="KindText" Width="80">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Classes="muted" Text="{Binding KindText}" Margin="12,0" />
@@ -508,7 +548,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Нода" SortMemberPath="Node" Width="86">
+            <DataGridTemplateColumn Header="{app:T 'Нода'}" SortMemberPath="Node" Width="86">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Classes="muted" Text="{Binding Node}" Margin="12,0" />
@@ -540,7 +580,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Диск" SortMemberPath="DiskPct" Width="130">
+            <DataGridTemplateColumn Header="{app:T 'Диск'}" SortMemberPath="DiskPct" Width="130">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <Grid ColumnDefinitions="40,*" Margin="12,0" Background="Transparent" ToolTip.Tip="{Binding DiskText}">
@@ -552,7 +592,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Темп." SortMemberPath="Temp" Width="86">
+            <DataGridTemplateColumn Header="{app:T 'Темп.'}" SortMemberPath="Temp" Width="86">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Text="{Binding TempText}" FontWeight="Medium" Margin="12,0"
@@ -561,7 +601,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Сеть" SortMemberPath="NetTotal" Width="180">
+            <DataGridTemplateColumn Header="{app:T 'Сеть'}" SortMemberPath="NetTotal" Width="180">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Classes="muted" Text="{Binding NetText}" FontSize="12" Margin="12,0" />
@@ -569,7 +609,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Подкл." SortMemberPath="Connections" Width="92">
+            <DataGridTemplateColumn Header="{app:T 'Подкл.'}" SortMemberPath="Connections" Width="92">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Text="{Binding ConnectionsText}" Margin="12,0" />
@@ -577,7 +617,7 @@
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
 
-            <DataGridTemplateColumn Header="Аптайм" SortMemberPath="Uptime" Width="110">
+            <DataGridTemplateColumn Header="{app:T 'Аптайм'}" SortMemberPath="Uptime" Width="110">
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Classes="muted" Text="{Binding UptimeText}" Margin="12,0" />
@@ -607,11 +647,71 @@
             <Border Classes="widget"
                     PointerPressed="Widget_PointerPressed" PointerMoved="Widget_PointerMoved"
                     PointerReleased="Widget_PointerReleased" ContextRequested="Widget_ContextRequested">
-              <StackPanel Spacing="7">
+              <Panel>
+              <!-- Built in the widget builder: title, then the kind's own content -->
+              <StackPanel Spacing="8" IsVisible="{Binding !IsServer}">
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+
+                <ItemsControl ItemsSource="{Binding Lines}" IsVisible="{Binding IsList}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="app:WidgetLine">
+                      <StackPanel Spacing="3" Margin="0,0,0,6">
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Classes="v" Text="{Binding Value}" />
+                          <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,7,0" VerticalAlignment="Center"
+                                   Fill="{Binding Row.Health, Converter={x:Static app:Converters.HealthDot}}" />
+                          <TextBlock FontSize="12" Text="{Binding Row.Name}" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                        <ProgressBar Classes="thin" Value="{Binding Pct}" Foreground="{Binding Pct, Converter={x:Static app:Converters.LoadBrush}}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8" IsVisible="{Binding IsSummary}">
+                  <StackPanel Spacing="1">
+                    <TextBlock Classes="k" Text="{app:T 'Запущено'}" />
+                    <TextBlock Classes="v" FontSize="16" Text="{Binding SummaryRunning}" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Spacing="1">
+                    <TextBlock Classes="k" Text="{app:T 'Средний CPU'}" />
+                    <TextBlock Classes="v" FontSize="16" Text="{Binding SummaryCpu}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Spacing="1">
+                    <TextBlock Classes="k" Text="{app:T 'Макс. темп.'}" />
+                    <TextBlock Classes="v" FontSize="16" Text="{Binding SummaryTemp}" />
+                  </StackPanel>
+                  <StackPanel Grid.Row="1" Grid.Column="1" Spacing="1">
+                    <TextBlock Classes="k" Text="{app:T 'Проблемы'}" />
+                    <TextBlock Classes="v" FontSize="16" Foreground="#F59E0B" Text="{Binding SummaryProblems}" />
+                  </StackPanel>
+                </Grid>
+
+                <StackPanel Spacing="6" IsVisible="{Binding IsCommand}">
+                  <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="accent" Padding="10,3" FontSize="12" Content="{app:T 'Выполнить'}"
+                            IsEnabled="{Binding !CommandBusy}" Click="WidgetRun_Click" />
+                    <TextBlock Classes="k" TextTrimming="CharacterEllipsis" Text="{Binding Row.Name, FallbackValue='—'}" />
+                  </DockPanel>
+                  <Border Background="#0E1014" CornerRadius="6" Padding="8,6">
+                    <StackPanel Spacing="4">
+                      <TextBlock FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11" Foreground="#91A7FF"
+                                 Text="{Binding Config.Command, StringFormat='$ {0}'}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="11" Foreground="#C9CED8"
+                                 TextWrapping="Wrap" MaxHeight="120" Text="{Binding CommandOutput}"
+                                 IsVisible="{Binding CommandOutput, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                  </Border>
+                  <TextBlock Classes="k" FontSize="11" Text="{Binding CommandStatus}"
+                             IsVisible="{Binding CommandStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                </StackPanel>
+              </StackPanel>
+
+              <StackPanel Spacing="7" IsVisible="{Binding IsServer}">
                 <DockPanel>
                   <Ellipse DockPanel.Dock="Left" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
                            Fill="{Binding Row.Health, Converter={x:Static app:Converters.HealthDot}, FallbackValue=Gray}" />
-                  <TextBlock Text="{Binding Row.Name, FallbackValue='Нет данных'}" FontWeight="SemiBold"
+                  <TextBlock Text="{Binding Row.Name, FallbackValue='—'}" FontWeight="SemiBold"
                              TextTrimming="CharacterEllipsis" />
                 </DockPanel>
                 <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Cpu}">
@@ -627,21 +727,22 @@
                                Foreground="{Binding Row.MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
                 </Grid>
                 <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Disk}">
-                  <TextBlock Classes="k" Text="Диск" />
+                  <TextBlock Classes="k" Text="{app:T 'Диск'}" />
                   <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.DiskPct, StringFormat='{}{0:0}%'}" />
                   <ProgressBar Grid.Column="2" Classes="thin" Value="{Binding Row.DiskPct}"
                                Foreground="{Binding Row.DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
                 </Grid>
                 <Grid ColumnDefinitions="52,*" IsVisible="{Binding Temp}">
-                  <TextBlock Classes="k" Text="Темп." />
+                  <TextBlock Classes="k" Text="{app:T 'Темп.'}" />
                   <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.TempText}"
                              Foreground="{Binding Row.Temp, Converter={x:Static app:Converters.TempBrush}}" />
                 </Grid>
                 <Grid ColumnDefinitions="52,*" IsVisible="{Binding Net}">
-                  <TextBlock Classes="k" Text="Сеть" />
+                  <TextBlock Classes="k" Text="{app:T 'Сеть'}" />
                   <TextBlock Grid.Column="1" Classes="v" FontWeight="Normal" Text="{Binding Row.NetText}" />
                 </Grid>
               </StackPanel>
+              </Panel>
             </Border>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
@@ -649,11 +750,11 @@
 
       <!-- Empty state -->
       <StackPanel IsVisible="{Binding !HasSources}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10">
-        <TextBlock Text="Нет подключённых серверов" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
-        <TextBlock Classes="muted" Text="Подключите Proxmox по API-токену или откройте демо-кластер" HorizontalAlignment="Center" />
+        <TextBlock Text="{app:T 'Нет подключённых серверов'}" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+        <TextBlock Classes="muted" Text="{app:T 'Подключите Proxmox по API-токену или откройте демо-кластер'}" HorizontalAlignment="Center" />
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,10,0,0">
-          <Button Classes="accent" Content="Подключить сервер" Click="ConnectServer" Padding="16,8" CornerRadius="8" />
-          <Button Content="Открыть демо" Click="OpenDemo" Padding="16,8" CornerRadius="8" />
+          <Button Classes="accent" Content="{app:T 'Подключить сервер'}" Click="ConnectServer" Padding="16,8" CornerRadius="8" />
+          <Button Content="{app:T 'Открыть демо'}" Click="OpenDemo" Padding="16,8" CornerRadius="8" />
         </StackPanel>
       </StackPanel>
     </Panel>

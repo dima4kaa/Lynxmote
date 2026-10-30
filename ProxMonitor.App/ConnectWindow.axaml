@@ -1,36 +1,37 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:ProxMonitor.App"
         x:Class="ProxMonitor.App.ConnectWindow"
-        Title="Подключить сервер" Icon="/Assets/app.ico"
+        Title="{app:T 'Подключить сервер'}" Icon="/Assets/app.ico"
         Width="460" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Surface}">
   <StackPanel Margin="24" Spacing="12">
-    <TextBlock Text="Подключить сервер Proxmox" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock Text="{app:T 'Подключить сервер Proxmox'}" FontSize="18" FontWeight="SemiBold" />
     <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-               Text="Создайте API-токен в Proxmox: Datacenter → Permissions → API Tokens. Для мониторинга хватит роли PVEAuditor, для запуска и остановки нужна PVEVMUser." />
+               Text="{app:T 'Создайте API-токен в Proxmox: Datacenter → Permissions → API Tokens. Для мониторинга хватит роли PVEAuditor, для запуска и остановки нужна PVEVMUser.'}" />
 
-    <TextBox x:Name="NameBox" Watermark="Название, например «Офис»" />
-    <TextBox x:Name="UrlBox" Watermark="Адрес: https://192.168.1.10:8006" />
+    <TextBox x:Name="NameBox" Watermark="{app:T 'Название, например «Офис»'}" />
+    <TextBox x:Name="UrlBox" Watermark="{app:T 'Адрес: https://192.168.1.10:8006'}" />
     <TextBox x:Name="TokenIdBox" Watermark="Token ID: root@pam!monitor" />
-    <TextBox x:Name="SecretBox" Watermark="Секрет токена" PasswordChar="•" />
+    <TextBox x:Name="SecretBox" Watermark="{app:T 'Секрет токена'}" PasswordChar="•" />
     <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
-               Text="Токен хранится зашифрованным и доступен только вашей учётной записи Windows." />
+               Text="{app:T 'Токен хранится зашифрованным и доступен только вашей учётной записи Windows.'}" />
 
     <Border x:Name="CertPanel" IsVisible="False" Classes="card" Padding="12">
       <StackPanel Spacing="8">
         <TextBlock TextWrapping="Wrap" FontSize="12"
-                   Text="Сертификат сервера самоподписанный. Сверьте отпечаток SHA-256 с указанным в Proxmox (Нода → System → Certificates):" />
+                   Text="{app:T 'Сертификат сервера самоподписанный. Сверьте отпечаток SHA-256 с указанным в Proxmox (Нода → System → Certificates):'}" />
         <SelectableTextBlock x:Name="CertText" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" />
-        <CheckBox x:Name="TrustBox" Content="Отпечаток совпадает, доверять этому сертификату" FontSize="12" />
+        <CheckBox x:Name="TrustBox" Content="{app:T 'Отпечаток совпадает, доверять этому сертификату'}" FontSize="12" />
       </StackPanel>
     </Border>
 
     <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" Foreground="#EF4444" />
 
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-      <Button Content="Отмена" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
-      <Button x:Name="ConnectButton" Classes="accent" Content="Подключить" Click="Connect_Click" Padding="16,6" IsDefault="True" />
+      <Button Content="{app:T 'Отмена'}" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
+      <Button x:Name="ConnectButton" Classes="accent" Content="{app:T 'Подключить'}" Click="Connect_Click" Padding="16,6" IsDefault="True" />
     </StackPanel>
   </StackPanel>
 </Window>

@@ -17,7 +17,7 @@ public partial class TerminalBlock(string command) : ObservableObject
 
     public string Command { get; } = command;
     [ObservableProperty] private string _output = "";
-    [ObservableProperty] private string _footer = "выполняется…";
+    [ObservableProperty] private string _footer = L.T("выполняется…");
     [ObservableProperty] private bool _failed;
 }
 
@@ -41,7 +41,7 @@ public partial class TerminalWindow : Window
     public TerminalWindow(ResourceRow row, MainViewModel vm) : this()
     {
         (_row, _vm) = (row, vm);
-        Title = $"Терминал: {row.Name}";
+        Title = L.F("Терминал: {0}", row.Name);
         TargetText.Text = row.Name;
         Blocks.ItemsSource = _blocks;
         string[] common = ["uptime", "df -h", "free -h", "ip -br a", "systemctl --failed", "journalctl -n 30 --no-pager"];
@@ -64,32 +64,33 @@ public partial class TerminalWindow : Window
     public static async Task<(ITerminal? Terminal, string? Problem)> ConnectSavedAsync(ResourceRow row, MainViewModel vm)
     {
         if (vm.SourceOf(row) is DemoSource) return (new DemoTerminal(LabelOf(row)), null);
-        if (vm.SourceOf(row) is not ProxmoxSource source || vm.ConfigOf(row) is not { } cfg) return (null, "Сервер не подключён");
-        const string firstLogin = "Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его";
+        if (vm.SourceOf(row) is not ProxmoxSource source || vm.ConfigOf(row) is not { } cfg) return (null, L.T("Сервер не подключён"));
+        var firstLogin = L.T("Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его");
         if (cfg.SshUser is not { } user || Secrets.Unprotect(cfg.ProtectedSshPassword) is not { } password) return (null, firstLogin);
         var host = await source.NodeAddressAsync(row.Node, default);
         if (!cfg.SshHostKeys.TryGetValue(host, out var key)) return (null, firstLogin);
         var (target, vmid) = TargetOf(row);
         var r = await SshTerminal.ConnectAsync(host, user, password, key, LabelOf(row), target, vmid, default);
-        return (r.Terminal, r.Terminal is null ? r.Error ?? "Ключ сервера изменился, откройте «Терминал»" : null);
+        return (r.Terminal, r.Terminal is null ? r.Error ?? L.T("Ключ сервера изменился, откройте «Терминал»") : null);
     }
 
     async Task StartAsync()
     {
         if (_vm!.SourceOf(_row!) is DemoSource)
         {
-            Connected(new DemoTerminal(LabelOf(_row!)), "демо-режим");
+            Connected(new DemoTerminal(LabelOf(_row!)), L.T("демо-режим"));
             return;
         }
         if (_vm.SourceOf(_row!) is not ProxmoxSource source || _vm.ConfigOf(_row!) is not { } cfg)
         {
-            StatusText.Text = "сервер не подключён";
+            StatusText.Text = L.T("сервер не подключён");
             return;
         }
-        StatusText.Text = "поиск адреса ноды…";
+        StatusText.Text = L.T("поиск адреса ноды…");
         _host = await source.NodeAddressAsync(_row!.Node, default);
-        LoginHint.Text = $"Команды выполняются на ноде {_row.Node} ({_host})" +
-                         (_row.IsNode ? "." : _row.LocalId.StartsWith("lxc/") ? " внутри контейнера через pct exec." : " внутри VM через qemu-guest-agent.");
+        LoginHint.Text = L.F(_row.IsNode ? "Команды выполняются на ноде {0} ({1})."
+            : _row.LocalId.StartsWith("lxc/") ? "Команды выполняются на ноде {0} ({1}) внутри контейнера через pct exec."
+            : "Команды выполняются на ноде {0} ({1}) внутри VM через qemu-guest-agent.", _row.Node, _host);
         if (cfg.SshUser is { } user && Secrets.Unprotect(cfg.ProtectedSshPassword) is { } password)
         {
             UserBox.Text = user;
@@ -109,7 +110,7 @@ public partial class TerminalWindow : Window
         if (TrustBox.IsChecked == true && _seenHostKey is not null) cfg.SshHostKeys[_host!] = _seenHostKey;
 
         LoginButton.IsEnabled = false;
-        StatusText.Text = "подключение…";
+        StatusText.Text = L.T("подключение…");
         var (target, vmid) = TargetOf(_row!);
         var result = await SshTerminal.ConnectAsync(_host!, user, password, cfg.SshHostKeys.GetValueOrDefault(_host!),
             LabelOf(_row!), target, vmid, default);
@@ -131,8 +132,8 @@ public partial class TerminalWindow : Window
             TrustBox.IsChecked = false;
             HostKeyPanel.IsVisible = true;
             LoginError.Text = cfg.SshHostKeys.ContainsKey(_host!)
-                ? "Ключ сервера изменился! Если вы не переустанавливали сервер, не подключайтесь."
-                : "Подтвердите отпечаток и нажмите «Подключиться» ещё раз";
+                ? L.T("Ключ сервера изменился! Если вы не переустанавливали сервер, не подключайтесь.")
+                : L.T("Подтвердите отпечаток и нажмите «Подключиться» ещё раз");
         }
         else
         {
@@ -143,7 +144,7 @@ public partial class TerminalWindow : Window
     void ShowLogin()
     {
         LoginPanel.IsVisible = true;
-        StatusText.Text = "нужен вход";
+        StatusText.Text = L.T("нужен вход");
         PasswordBox.Focus();
     }
 
@@ -193,15 +194,15 @@ public partial class TerminalWindow : Window
             var r = await _terminal.RunAsync(command, _running.Token);
             block.Output = r.Output;
             block.Failed = r.ExitCode != 0;
-            block.Footer = $"{(r.ExitCode == 0 ? "готово" : $"код {r.ExitCode}")} · {r.Duration.TotalSeconds:0.00} с";
+            block.Footer = L.F(r.ExitCode == 0 ? "готово · {1:0.00} с" : "код {0} · {1:0.00} с", r.ExitCode, r.Duration.TotalSeconds);
         }
         catch (OperationCanceledException)
         {
-            (block.Footer, block.Failed) = ("прервано", true);
+            (block.Footer, block.Failed) = (L.T("прервано"), true);
         }
         catch (Exception e)
         {
-            (block.Output, block.Footer, block.Failed) = (e.Message, "ошибка", true);
+            (block.Output, block.Footer, block.Failed) = (e.Message, L.T("ошибка"), true);
         }
         finally
         {

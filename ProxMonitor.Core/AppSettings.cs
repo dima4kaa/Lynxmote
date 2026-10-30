@@ -18,10 +18,25 @@ public sealed class ServerConfig
     public Dictionary<string, string> SshHostKeys { get; set; } = []; // host -> SHA-256 fingerprint the user confirmed
 }
 
-/// <summary>A small floating card over the table that shows chosen metrics of one resource.</summary>
+public static class WidgetKind
+{
+    public const string Server = "server";   // one resource, chosen metrics
+    public const string Group = "group";     // several resources, one line each
+    public const string Summary = "summary"; // totals over a selection
+    public const string Top = "top";         // the most loaded in a selection
+    public const string Command = "command"; // one-click command on a server
+}
+
+/// <summary>A small floating card over the table.</summary>
 public sealed class WidgetConfig
 {
-    public string Key { get; set; } = ""; // resource key
+    public string Kind { get; set; } = WidgetKind.Server;
+    public string Title { get; set; } = "";
+    public List<string> Keys { get; set; } = []; // selection for group/summary/top/command; empty means all
+    public string Metric { get; set; } = "cpu";  // top: cpu | ram | disk | temp
+    public int Count { get; set; } = 3;          // top: how many
+    public string Command { get; set; } = "";    // command: what to run
+    public string Key { get; set; } = ""; // server kind: resource key
     public double X { get; set; }
     public double Y { get; set; }
     public bool Cpu { get; set; } = true;
@@ -44,6 +59,8 @@ public sealed class AppSettings
     public bool Demo { get; set; }
     public string Theme { get; set; } = "Dark";
     public bool InspectorOpen { get; set; } = true;
+    public bool NodesCollapsed { get; set; }
+    public string Language { get; set; } = "ru";
     public List<ServerConfig> Servers { get; set; } = [];
     public List<string> Tabs { get; set; } = [];
     public Dictionary<string, string> TabOf { get; set; } = []; // resource key -> tab name

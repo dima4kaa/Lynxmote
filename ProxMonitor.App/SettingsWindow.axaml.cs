@@ -18,27 +18,43 @@ public partial class SettingsWindow : Window
     public SettingsWindow(MainViewModel vm) : this()
     {
         _vm = vm;
+        LanguageBox.SelectedIndex = vm.Language == "en" ? 1 : 0;
         var t = vm.GlobalThresholds;
         (CpuBox.Value, TempBox.Value, DiskBox.Value) = ((decimal)t.CpuPct, (decimal)t.TempC, (decimal)t.DiskPct);
     }
 
     void Cancel_Click(object? sender, RoutedEventArgs e) => Close();
 
-    static readonly FilePickerFileType JsonFile = new("Список серверов") { Patterns = ["*.json"] };
+    void Language_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_vm is null) return;
+        var language = LanguageBox.SelectedIndex == 1 ? "en" : "ru";
+        _vm.Language = language;
+        // Texts are built once at startup, so a switch needs a restart.
+        RestartButton.IsVisible = LanguageHint.IsVisible = (language == "en") != L.English;
+    }
+
+    void Restart_Click(object? sender, RoutedEventArgs e)
+    {
+        System.Diagnostics.Process.Start(Environment.ProcessPath!);
+        (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+    }
+
+    static readonly FilePickerFileType JsonFile = new(L.T("Список серверов")) { Patterns = ["*.json"] };
 
     async void Export_Click(object? sender, RoutedEventArgs e)
     {
         if (_vm is null) return;
         var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Экспорт списка серверов", SuggestedFileName = "proxmonitor-servers.json",
+            Title = L.T("Экспорт списка серверов"), SuggestedFileName = "proxmonitor-servers.json",
             DefaultExtension = "json", FileTypeChoices = [JsonFile],
         });
         if (file is null) return;
         await using (var stream = await file.OpenWriteAsync())
         await using (var writer = new StreamWriter(stream))
             await writer.WriteAsync(_vm.ExportServers());
-        ListStatus.Text = $"Сохранено: {file.Name}";
+        ListStatus.Text = L.F("Сохранено: {0}", file.Name);
     }
 
     async void Import_Click(object? sender, RoutedEventArgs e)
@@ -46,7 +62,7 @@ public partial class SettingsWindow : Window
         if (_vm is null) return;
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Импорт списка серверов", FileTypeFilter = [JsonFile],
+            Title = L.T("Импорт списка серверов"), FileTypeFilter = [JsonFile],
         });
         if (files.Count == 0) return;
 
@@ -74,7 +90,7 @@ public partial class SettingsWindow : Window
             _vm.AddServer(server.Config, server.Secret);
             added++;
         }
-        ListStatus.Text = $"Добавлено серверов: {added}" + (skipped > 0 ? $", пропущено: {skipped}" : "");
+        ListStatus.Text = L.F("Добавлено серверов: {0}", added) + (skipped > 0 ? L.F(", пропущено: {0}", skipped) : "");
     }
 
     void Save_Click(object? sender, RoutedEventArgs e)

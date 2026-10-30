@@ -65,27 +65,27 @@ public sealed class AlertEngine(Func<string, Thresholds> thresholdsFor)
         {
             ResourceSnapshot? p = null;
             if (old is not null && !old.Remove(r.Id, out p))
-                events.Add(new(now, Severity.Info, r.Name, "Появился новый ресурс", r.Id));
+                events.Add(new(now, Severity.Info, r.Name, L.T("Появился новый ресурс"), r.Id));
             if (p is not null && p.Running != r.Running)
                 events.Add(r.Running
-                    ? new(now, Severity.Info, r.Name, "Запущен", r.Id)
-                    : new(now, Severity.Critical, r.Name, "Остановлен", r.Id));
+                    ? new(now, Severity.Info, r.Name, L.T("Запущен"), r.Id)
+                    : new(now, Severity.Critical, r.Name, L.T("Остановлен"), r.Id));
 
             // We poll faster than Proxmox refreshes; an identical snapshot is the same data update, not a new one.
             if (r == p) continue;
             var t = thresholdsFor(r.Id);
             if (_hold.Observe(r.Id + "|cpu", r.Cpu * 100 >= t.CpuPct, now))
-                events.Add(new(now, Severity.Warning, r.Name, $"Нагрузка CPU {r.Cpu * 100:0}% (порог {t.CpuPct:0}%)", r.Id));
+                events.Add(new(now, Severity.Warning, r.Name, L.F("Нагрузка CPU {0:0}% (порог {1:0}%)", r.Cpu * 100, t.CpuPct), r.Id));
             if (_hold.Observe(r.Id + "|temp", r.TempC >= t.TempC, now))
-                events.Add(new(now, Severity.Critical, r.Name, $"Перегрев {r.TempC:0} °C (порог {t.TempC:0} °C)", r.Id));
+                events.Add(new(now, Severity.Critical, r.Name, L.F("Перегрев {0:0} °C (порог {1:0} °C)", r.TempC, t.TempC), r.Id));
             var disk = r.DiskTotal == 0 ? 0 : 100.0 * r.DiskUsed / r.DiskTotal;
             if (_hold.Observe(r.Id + "|disk", disk >= t.DiskPct, now))
-                events.Add(new(now, Severity.Warning, r.Name, $"Диск заполнен на {disk:0}%", r.Id));
+                events.Add(new(now, Severity.Warning, r.Name, L.F("Диск заполнен на {0:0}%", disk), r.Id));
         }
 
         if (old is not null)
             foreach (var gone in old.Values)
-                events.Add(new(now, Severity.Critical, gone.Name, "Пропал из кластера", gone.Id));
+                events.Add(new(now, Severity.Critical, gone.Name, L.T("Пропал из кластера"), gone.Id));
         return events;
     }
 }

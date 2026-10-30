@@ -1,7 +1,9 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Controls.Primitives;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 
 namespace ProxMonitor.App;
 
@@ -27,6 +29,8 @@ public static class Chrome
         dragArea.PointerPressed += (_, e) =>
         {
             if (!e.GetCurrentPoint(w).Properties.IsLeftButtonPressed) return;
+            // Drag only from plain surface: controls such as combo boxes act on release, which a drag would swallow.
+            if ((e.Source as Visual)?.FindAncestorOfType<TemplatedControl>(includeSelf: true) is { } owner && owner != w) return;
             if (e.ClickCount == 2 && w.CanResize)
                 w.WindowState = w.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
             else

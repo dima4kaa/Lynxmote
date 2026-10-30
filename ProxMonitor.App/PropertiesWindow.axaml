@@ -4,7 +4,7 @@
         xmlns:core="using:ProxMonitor.Core"
         x:Class="ProxMonitor.App.PropertiesWindow"
         x:DataType="app:ResourceRow"
-        Title="{Binding Name, StringFormat='Свойства: {0}'}" Icon="/Assets/app.ico"
+        Icon="/Assets/app.ico"
         Width="920" Height="860" MinWidth="720" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Bg}">
@@ -31,7 +31,7 @@
   <Border x:Name="TitleBar" DockPanel.Dock="Top" Height="40" Background="Transparent">
     <StackPanel Orientation="Horizontal" Spacing="8" Margin="16,0" VerticalAlignment="Center">
       <Image Source="/Assets/app.ico" Width="16" Height="16" />
-      <TextBlock Classes="muted" FontSize="12" Text="Свойства" VerticalAlignment="Center" />
+      <TextBlock Classes="muted" FontSize="12" Text="{app:T 'Свойства'}" VerticalAlignment="Center" />
     </StackPanel>
   </Border>
   <ScrollViewer>
@@ -39,9 +39,9 @@
       <!-- Header -->
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="accent" Click="OpenTerminal" VerticalAlignment="Center"
-                Margin="20,0,0,0" Padding="14,7" CornerRadius="8" Content="Терминал" />
+                Margin="20,0,0,0" Padding="14,7" CornerRadius="8" Content="{app:T 'Терминал'}" />
         <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <TextBlock Classes="label" Text="Аптайм" HorizontalAlignment="Right" />
+          <TextBlock Classes="label" Text="{app:T 'Аптайм'}" HorizontalAlignment="Right" />
           <TextBlock Text="{Binding UptimeText}" FontWeight="SemiBold" HorizontalAlignment="Right" />
         </StackPanel>
         <StackPanel Spacing="4">
@@ -51,7 +51,7 @@
             <TextBlock Text="{Binding Name}" FontSize="22" FontWeight="SemiBold" />
           </StackPanel>
           <TextBlock Classes="muted">
-            <Run Text="{Binding KindText}" /><Run Text=" · нода " /><Run Text="{Binding Node}" /><Run Text=" · " /><Run Text="{Binding StatusText}" />
+            <Run Text="{Binding KindText}" /><Run Text="{app:T ' · нода '}" /><Run Text="{Binding Node}" /><Run Text=" · " /><Run Text="{Binding StatusText}" />
           </TextBlock>
         </StackPanel>
       </DockPanel>
@@ -68,7 +68,7 @@
 
         <Border Grid.Column="2" Classes="card">
           <StackPanel>
-            <TextBlock Classes="label" Text="Память" />
+            <TextBlock Classes="label" Text="{app:T 'Память'}" />
             <StackPanel Orientation="Horizontal" Spacing="10">
               <TextBlock Classes="value" Text="{Binding MemPct, StringFormat='{}{0:0}%'}" />
               <TextBlock Classes="muted" Text="{Binding MemText}" VerticalAlignment="Bottom" Margin="0,0,0,4" />
@@ -79,7 +79,7 @@
 
         <Border Grid.Row="2" Classes="card">
           <StackPanel>
-            <TextBlock Classes="label" Text="Сеть: вход (синий) и выход (зелёный)" />
+            <TextBlock Classes="label" Text="{app:T 'Сеть: вход (синий) и выход (зелёный)'}" />
             <TextBlock Classes="value" Text="{Binding NetText}" />
             <Panel>
               <app:Sparkline Classes="chart" Values="{Binding NetInHistory}" Maximum="{Binding NetScale}" Stroke="#5C7CFA" />
@@ -90,7 +90,7 @@
 
         <Border Grid.Row="2" Grid.Column="2" Classes="card">
           <StackPanel>
-            <TextBlock Classes="label" Text="Температура" />
+            <TextBlock Classes="label" Text="{app:T 'Температура'}" />
             <TextBlock Classes="value" Text="{Binding TempText}"
                        Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
             <Panel>
@@ -98,7 +98,7 @@
                              IsVisible="{Binding Temp, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center"
                          IsVisible="{Binding Temp, Converter={x:Static ObjectConverters.IsNull}}"
-                         Text="Датчиков нет: температура есть только у нод и требует SSH и lm-sensors" />
+                         Text="{app:T 'Датчиков нет: температура есть только у нод и требует SSH и lm-sensors'}" />
             </Panel>
           </StackPanel>
         </Border>
@@ -108,25 +108,25 @@
       <Border Classes="card">
         <UniformGrid Columns="5">
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Диск" />
+            <TextBlock Classes="label" Text="{app:T 'Диск'}" />
             <TextBlock Text="{Binding DiskText}" FontWeight="SemiBold" />
             <ProgressBar Classes="thin" Value="{Binding DiskPct}" Margin="0,6,24,0"
                          Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
           </StackPanel>
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Подключения" />
+            <TextBlock Classes="label" Text="{app:T 'Подключения'}" />
             <TextBlock Text="{Binding ConnectionsText}" FontWeight="SemiBold" />
           </StackPanel>
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="ID в Proxmox" />
+            <TextBlock Classes="label" Text="{app:T 'ID в Proxmox'}" />
             <TextBlock Text="{Binding LocalId}" FontWeight="SemiBold" />
           </StackPanel>
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="IP-адрес" />
+            <TextBlock Classes="label" Text="{app:T 'IP-адрес'}" />
             <SelectableTextBlock x:Name="IpText" Text="…" FontWeight="SemiBold" TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel Spacing="2">
-            <TextBlock Classes="label" Text="Нода" />
+            <TextBlock Classes="label" Text="{app:T 'Нода'}" />
             <TextBlock Text="{Binding Node}" FontWeight="SemiBold" />
           </StackPanel>
         </UniformGrid>
@@ -136,17 +136,17 @@
       <Border Classes="card">
         <StackPanel Spacing="10">
           <DockPanel>
-            <Button DockPanel.Dock="Right" Content="Обновить" Click="RefreshConnections_Click" Padding="12,4" />
+            <Button DockPanel.Dock="Right" Content="{app:T 'Обновить'}" Click="RefreshConnections_Click" Padding="12,4" />
             <StackPanel Spacing="2">
-              <TextBlock Text="Активные подключения" FontWeight="SemiBold" />
+              <TextBlock Text="{app:T 'Активные подключения'}" FontWeight="SemiBold" />
               <TextBlock x:Name="ConnectionsHint" Classes="muted" FontSize="12" TextWrapping="Wrap" />
             </StackPanel>
           </DockPanel>
           <Grid x:Name="ConnectionsHeader" ColumnDefinitions="80,*,*,*" IsVisible="False">
-            <TextBlock Classes="label" Text="Протокол" />
-            <TextBlock Grid.Column="1" Classes="label" Text="Адрес сервера" />
-            <TextBlock Grid.Column="2" Classes="label" Text="Откуда подключились" />
-            <TextBlock Grid.Column="3" Classes="label" Text="Программа" />
+            <TextBlock Classes="label" Text="{app:T 'Протокол'}" />
+            <TextBlock Grid.Column="1" Classes="label" Text="{app:T 'Адрес сервера'}" />
+            <TextBlock Grid.Column="2" Classes="label" Text="{app:T 'Откуда подключились'}" />
+            <TextBlock Grid.Column="3" Classes="label" Text="{app:T 'Программа'}" />
           </Grid>
           <ItemsControl x:Name="ConnectionsList">
             <ItemsControl.ItemTemplate>
@@ -167,9 +167,9 @@
       <Border Classes="card">
         <StackPanel Spacing="12">
           <DockPanel>
-            <CheckBox x:Name="OwnBox" DockPanel.Dock="Right" Content="Свои значения" IsCheckedChanged="Thresholds_Changed" />
+            <CheckBox x:Name="OwnBox" DockPanel.Dock="Right" Content="{app:T 'Свои значения'}" IsCheckedChanged="Thresholds_Changed" />
             <StackPanel Spacing="2">
-              <TextBlock Text="Пороги предупреждений" FontWeight="SemiBold" />
+              <TextBlock Text="{app:T 'Пороги предупреждений'}" FontWeight="SemiBold" />
               <TextBlock x:Name="ThresholdsHint" Classes="muted" FontSize="12" />
             </StackPanel>
           </DockPanel>
@@ -179,11 +179,11 @@
               <NumericUpDown x:Name="CpuBox" Minimum="1" Maximum="100" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
             </StackPanel>
             <StackPanel Spacing="4" Margin="0,0,12,0">
-              <TextBlock Classes="label" Text="Температура, °C" />
+              <TextBlock Classes="label" Text="{app:T 'Температура, °C'}" />
               <NumericUpDown x:Name="TempBox" Minimum="30" Maximum="120" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
             </StackPanel>
             <StackPanel Spacing="4">
-              <TextBlock Classes="label" Text="Диск, %" />
+              <TextBlock Classes="label" Text="{app:T 'Диск, %'}" />
               <NumericUpDown x:Name="DiskBox" Minimum="1" Maximum="100" Increment="5" FormatString="0" ValueChanged="Thresholds_Changed" />
             </StackPanel>
           </UniformGrid>
@@ -193,8 +193,8 @@
       <!-- Events -->
       <Border Classes="card">
         <StackPanel Spacing="10">
-          <TextBlock Text="События" FontWeight="SemiBold" />
-          <TextBlock x:Name="NoEvents" Classes="muted" FontSize="12" Text="Пока ничего не происходило" />
+          <TextBlock Text="{app:T 'События'}" FontWeight="SemiBold" />
+          <TextBlock x:Name="NoEvents" Classes="muted" FontSize="12" Text="{app:T 'Пока ничего не происходило'}" />
           <ItemsControl x:Name="EventsList">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="core:AlertEvent">
@@ -211,7 +211,7 @@
         </StackPanel>
       </Border>
 
-      <TextBlock Classes="muted" FontSize="11" Text="Графики показывают историю с момента запуска приложения, до 10 минут." />
+      <TextBlock Classes="muted" FontSize="11" Text="{app:T 'Графики показывают историю с момента запуска приложения, до 10 минут.'}" />
     </StackPanel>
   </ScrollViewer>
   </DockPanel>

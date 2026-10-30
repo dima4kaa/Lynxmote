@@ -1,38 +1,52 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:ProxMonitor.App"
         x:Class="ProxMonitor.App.SettingsWindow"
-        Title="Настройки" Icon="/Assets/app.ico"
+        Title="{app:T 'Настройки'}" Icon="/Assets/app.ico"
         Width="440" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Surface}">
   <StackPanel Margin="24" Spacing="14">
-    <TextBlock Text="Пороги предупреждений" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock Text="{app:T 'Пороги предупреждений'}" FontSize="18" FontWeight="SemiBold" />
     <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-               Text="Значения для всех серверов. Для отдельного сервера их можно переопределить в его свойствах." />
+               Text="{app:T 'Значения для всех серверов. Для отдельного сервера их можно переопределить в его свойствах.'}" />
 
     <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
-      <TextBlock Text="Загрузка CPU, %" VerticalAlignment="Center" />
+      <TextBlock Text="{app:T 'Загрузка CPU, %'}" VerticalAlignment="Center" />
       <NumericUpDown x:Name="CpuBox" Grid.Column="1" Minimum="1" Maximum="100" Increment="5" FormatString="0" />
-      <TextBlock Grid.Row="1" Text="Температура, °C" VerticalAlignment="Center" />
+      <TextBlock Grid.Row="1" Text="{app:T 'Температура, °C'}" VerticalAlignment="Center" />
       <NumericUpDown x:Name="TempBox" Grid.Row="1" Grid.Column="1" Minimum="30" Maximum="120" Increment="5" FormatString="0" />
-      <TextBlock Grid.Row="2" Text="Заполнение диска, %" VerticalAlignment="Center" />
+      <TextBlock Grid.Row="2" Text="{app:T 'Заполнение диска, %'}" VerticalAlignment="Center" />
       <NumericUpDown x:Name="DiskBox" Grid.Row="2" Grid.Column="1" Minimum="1" Maximum="100" Increment="5" FormatString="0" />
     </Grid>
 
     <StackPanel Spacing="8" Margin="0,8,0,0">
-      <TextBlock Text="Список серверов" FontSize="15" FontWeight="SemiBold" />
+      <TextBlock Text="{app:T 'Список серверов'}" FontSize="15" FontWeight="SemiBold" />
       <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
-                 Text="Файл с адресами и Token ID, чтобы перенести серверы на другой компьютер. Секреты в файл не попадают: при импорте их нужно ввести заново." />
+                 Text="{app:T 'Файл с адресами и Token ID, чтобы перенести серверы на другой компьютер. Секреты в файл не попадают: при импорте их нужно ввести заново.'}" />
       <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Экспорт в файл…" Click="Export_Click" Padding="12,6" />
-        <Button Content="Импорт из файла…" Click="Import_Click" Padding="12,6" />
+        <Button Content="{app:T 'Экспорт в файл…'}" Click="Export_Click" Padding="12,6" />
+        <Button Content="{app:T 'Импорт из файла…'}" Click="Import_Click" Padding="12,6" />
       </StackPanel>
       <TextBlock x:Name="ListStatus" FontSize="12" TextWrapping="Wrap" />
     </StackPanel>
 
+    <StackPanel Spacing="8" Margin="0,8,0,0">
+      <TextBlock Text="{app:T 'Язык'}" FontSize="15" FontWeight="SemiBold" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <ComboBox x:Name="LanguageBox" Width="160" SelectionChanged="Language_Changed">
+          <ComboBoxItem Content="{app:T 'Русский'}" />
+          <ComboBoxItem Content="English" />
+        </ComboBox>
+        <Button x:Name="RestartButton" Content="{app:T 'Перезапустить'}" Click="Restart_Click" Padding="12,6" IsVisible="False" />
+      </StackPanel>
+      <TextBlock x:Name="LanguageHint" Classes="muted" FontSize="12" TextWrapping="Wrap" IsVisible="False"
+                 Text="{app:T 'Язык сменится после перезапуска программы.'}" />
+    </StackPanel>
+
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
-      <Button Content="Отмена" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
-      <Button Classes="accent" Content="Сохранить" Click="Save_Click" Padding="16,6" IsDefault="True" />
+      <Button Content="{app:T 'Отмена'}" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
+      <Button Classes="accent" Content="{app:T 'Сохранить'}" Click="Save_Click" Padding="16,6" IsDefault="True" />
     </StackPanel>
   </StackPanel>
 </Window>

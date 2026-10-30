@@ -30,7 +30,7 @@ public static class ServerList
         {
             file = null;
         }
-        if (file?.Format != FormatName || file.Servers is null) throw new FormatException("Это не список серверов ProxMonitor");
+        if (file?.Format != FormatName || file.Servers is null) throw new FormatException(L.T("Это не список серверов ProxMonitor"));
         return file.Servers.Where(IsValid).ToList();
     }
 

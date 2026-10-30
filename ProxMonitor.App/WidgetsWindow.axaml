@@ -1,0 +1,105 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:ProxMonitor.App"
+        x:Class="ProxMonitor.App.WidgetsWindow"
+        Title="{app:T 'Виджеты'}" Icon="/Assets/app.ico"
+        Width="820" Height="640" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Surface}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="ListBox#ServerList ListBoxItem">
+      <Setter Property="Padding" Value="10,5" />
+    </Style>
+  </Window.Styles>
+
+  <Grid ColumnDefinitions="280,*" Margin="24">
+    <!-- Existing widgets -->
+    <DockPanel Margin="0,0,24,0">
+      <TextBlock DockPanel.Dock="Top" Text="{app:T 'Мои виджеты'}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+      <TextBlock x:Name="NoWidgets" DockPanel.Dock="Top" Classes="muted" FontSize="12" TextWrapping="Wrap"
+                 Text="{app:T 'Пока нет ни одного. Соберите первый справа.'}" />
+      <ScrollViewer>
+        <ItemsControl x:Name="WidgetList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="app:WidgetVm">
+              <Border Classes="card" Padding="12,8" Margin="0,0,0,6">
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Classes="icon" FontSize="12" Content="{app:T 'Удалить'}" Click="Delete_Click" />
+                  <StackPanel Spacing="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="label" Text="{Binding ScopeText}" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </DockPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </DockPanel>
+
+    <!-- New widget -->
+    <DockPanel Grid.Column="1">
+      <TextBlock DockPanel.Dock="Top" Text="{app:T 'Новый виджет'}" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12" />
+
+      <StackPanel DockPanel.Dock="Bottom" Spacing="10" Margin="0,12,0,0">
+        <TextBlock x:Name="StatusText" FontSize="12" Foreground="#EF4444" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+          <Button Content="{app:T 'Закрыть'}" Click="Close_Click" Padding="16,6" IsCancel="True" />
+          <Button Classes="accent" Content="{app:T 'Создать виджет'}" Click="Create_Click" Padding="16,6" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,12,*">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="{app:T 'Что показывать'}" />
+            <ComboBox x:Name="KindBox" HorizontalAlignment="Stretch" SelectionChanged="Kind_Changed" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="4">
+            <TextBlock Classes="label" Text="{app:T 'Название'}" />
+            <TextBox x:Name="TitleBox" />
+          </StackPanel>
+        </Grid>
+        <TextBlock x:Name="KindHint" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+
+        <Grid x:Name="TopOptions" ColumnDefinitions="*,12,*">
+          <StackPanel Spacing="4">
+            <TextBlock Classes="label" Text="{app:T 'По какому показателю'}" />
+            <ComboBox x:Name="MetricBox" HorizontalAlignment="Stretch" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Spacing="4">
+            <TextBlock Classes="label" Text="{app:T 'Сколько серверов'}" />
+            <NumericUpDown x:Name="CountBox" Minimum="1" Maximum="10" Value="3" FormatString="0" />
+          </StackPanel>
+        </Grid>
+
+        <StackPanel x:Name="CommandOptions" Spacing="4">
+          <TextBlock Classes="label" Text="{app:T 'Команда'}" />
+          <TextBox x:Name="CommandBox" FontFamily="Cascadia Mono, Consolas, Courier New" Watermark="systemctl restart nginx" />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+          <TextBlock x:Name="ServersLabel" Classes="label" />
+          <ListBox x:Name="ServerList" Height="230" SelectionMode="Multiple,Toggle"
+                   Background="{DynamicResource Bg}" CornerRadius="8">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="app:ResourceRow">
+                <DockPanel>
+                  <TextBlock DockPanel.Dock="Right" Classes="label" Text="{Binding KindText}" />
+                  <Ellipse DockPanel.Dock="Left" Width="7" Height="7" Margin="0,0,8,0" VerticalAlignment="Center"
+                           Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
+                  <TextBlock FontSize="13" Text="{Binding Name}" />
+                </DockPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </StackPanel>
+    </DockPanel>
+  </Grid>
+</Window>

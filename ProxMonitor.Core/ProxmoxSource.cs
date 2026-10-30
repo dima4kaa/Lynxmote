@@ -49,11 +49,11 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         try
         {
             using var doc = await source.GetAsync("cluster/resources?type=node", default);
-            return new(true, $"Подключено, нод: {doc.RootElement.GetProperty("data").GetArrayLength()}");
+            return new(true, L.F("Подключено, нод: {0}", doc.RootElement.GetProperty("data").GetArrayLength()));
         }
         catch (HttpRequestException e) when (e.InnerException is AuthenticationException && source._seenCert is { } cert)
         {
-            return new(false, "Сертификат сервера не подтверждён", cert);
+            return new(false, L.T("Сертификат сервера не подтверждён"), cert);
         }
         catch (Exception e)
         {
@@ -64,8 +64,8 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     public static string Describe(Exception e) => e switch
     {
         ProxmoxException => e.Message,
-        TaskCanceledException => "Сервер не отвечает",
-        HttpRequestException { InnerException: AuthenticationException } => "Сертификат сервера изменился или не подтверждён",
+        TaskCanceledException => L.T("Сервер не отвечает"),
+        HttpRequestException { InnerException: AuthenticationException } => L.T("Сертификат сервера изменился или не подтверждён"),
         _ => e.Message,
     };
 
@@ -100,21 +100,21 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
 
     public async Task<string> ApplyAsync(string id, PowerAction action, CancellationToken ct)
     {
-        if (!id.StartsWith("qemu/") && !id.StartsWith("lxc/")) return "Действие доступно только для VM и контейнеров";
-        if (!_nodeOf.TryGetValue(id, out var node)) return "Ресурс ещё не загружен";
+        if (!id.StartsWith("qemu/") && !id.StartsWith("lxc/")) return L.T("Действие доступно только для VM и контейнеров");
+        if (!_nodeOf.TryGetValue(id, out var node)) return L.T("Ресурс ещё не загружен");
 
         var path = $"nodes/{Uri.EscapeDataString(node)}/{id}";
         var form = new Dictionary<string, string>();
         string url, done;
         switch (action)
         {
-            case PowerAction.Start: (url, done) = ($"{path}/status/start", "Команда запуска отправлена"); break;
-            case PowerAction.Stop: (url, done) = ($"{path}/status/stop", "Команда остановки отправлена"); break;
-            case PowerAction.Reboot: (url, done) = ($"{path}/status/reboot", "Команда перезагрузки отправлена"); break;
+            case PowerAction.Start: (url, done) = ($"{path}/status/start", L.T("Команда запуска отправлена")); break;
+            case PowerAction.Stop: (url, done) = ($"{path}/status/stop", L.T("Команда остановки отправлена")); break;
+            case PowerAction.Reboot: (url, done) = ($"{path}/status/reboot", L.T("Команда перезагрузки отправлена")); break;
             default:
                 var name = $"pm{DateTime.Now:yyyyMMdd_HHmmss}";
                 form["snapname"] = name;
-                (url, done) = ($"{path}/snapshot", $"Создаётся снапшот {name}");
+                (url, done) = ($"{path}/snapshot", L.F("Создаётся снапшот {0}", name));
                 break;
         }
         using var resp = await _http.PostAsync(url, new FormUrlEncodedContent(form), ct);
@@ -186,9 +186,9 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         if (resp.IsSuccessStatusCode) return;
         throw new ProxmoxException(resp.StatusCode switch
         {
-            HttpStatusCode.Unauthorized => "Неверный токен",
-            HttpStatusCode.Forbidden => $"Недостаточно прав: {resp.ReasonPhrase}",
-            _ => $"Ошибка {(int)resp.StatusCode}: {resp.ReasonPhrase}",
+            HttpStatusCode.Unauthorized => L.T("Неверный токен"),
+            HttpStatusCode.Forbidden => L.F("Недостаточно прав: {0}", resp.ReasonPhrase),
+            _ => L.F("Ошибка {0}: {1}", (int)resp.StatusCode, resp.ReasonPhrase),
         });
     }
 

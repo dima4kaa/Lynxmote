@@ -10,16 +10,19 @@ public sealed record ConnectResult(bool Ok, string Message, string? UntrustedCer
 
 public sealed class ProxmoxException(string message) : Exception(message);
 
-/// <summary>Proxmox VE REST API with an API token. Temperature and connections need SSH and are not read yet.</summary>
+/// <summary>Proxmox VE REST API with an API token; node temperature, connections and traffic come over SSH.</summary>
 public sealed class ProxmoxSource : IResourceSource, IDisposable
 {
     readonly HttpClient _http;
+    readonly ServerConfig _cfg;
     readonly Dictionary<string, (long In, long Out, DateTime At, long RateIn, long RateOut)> _counters = [];
     readonly Dictionary<string, string> _nodeOf = [];
+    readonly Dictionary<string, NodeSensors> _sensors = [];
     string? _seenCert;
 
     public ProxmoxSource(ServerConfig cfg, string secret)
     {
+        _cfg = cfg; // the same object the terminal saves the SSH login into
         Key = cfg.Key;
         Title = cfg.Name;
         var handler = new HttpClientHandler
@@ -43,13 +46,30 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     public string Title { get; }
     public TimeSpan Interval => TimeSpan.FromSeconds(2); // Proxmox itself refreshes these stats about every 10 s
 
+    /// <summary>What is wrong with the server's answers right now, for the event log; null when all is fine.</summary>
+    public string? Problem { get; private set; }
+
+    /// <summary>
+    /// A token made with "Privilege Separation" (on by default) has no rights of its own: Proxmox still lists the nodes,
+    /// but without any load figures (no Sys.Audit) and hides every VM (no VM.Audit).
+    /// </summary>
+    static bool LacksRights(IEnumerable<JsonElement> nodes) =>
+        nodes.Any() && nodes.All(n => !n.TryGetProperty("maxcpu", out _));
+
+    static string NoRights(string tokenId) => L.F(
+        "Токену {0} не хватает прав, поэтому не видно нагрузку и VM. Выдайте роль PVEAuditor на путь /: Datacenter → Permissions → Add → API Token Permission.",
+        tokenId);
+
     public static async Task<ConnectResult> TestAsync(ServerConfig cfg, string secret)
     {
         using var source = new ProxmoxSource(cfg, secret);
         try
         {
             using var doc = await source.GetAsync("cluster/resources?type=node", default);
-            return new(true, L.F("Подключено, нод: {0}", doc.RootElement.GetProperty("data").GetArrayLength()));
+            var nodes = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
+            return LacksRights(nodes)
+                ? new(false, NoRights(cfg.TokenId))
+                : new(true, L.F("Подключено, нод: {0}", nodes.Count));
         }
         catch (HttpRequestException e) when (e.InnerException is AuthenticationException && source._seenCert is { } cert)
         {
@@ -74,7 +94,9 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         using var doc = await GetAsync("cluster/resources", ct);
         var now = DateTime.UtcNow;
         var list = new List<ResourceSnapshot>();
-        foreach (var r in doc.RootElement.GetProperty("data").EnumerateArray())
+        var all = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
+        Problem = LacksRights(all.Where(r => Str(r, "type") == "node")) ? NoRights(_cfg.TokenId) : null;
+        foreach (var r in all)
         {
             ResourceKind? kind = Str(r, "type") switch
             {
@@ -88,14 +110,29 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             var id = Str(r, "id");
             var node = Str(r, "node");
             _nodeOf[id] = node;
-            var (netIn, netOut) = Rates(id, (long)Num(r, "netin"), (long)Num(r, "netout"), now);
+            var running = Str(r, "status") is "running" or "online";
+            // Nodes have no netin/netout in /cluster/resources: their traffic is the NIC counters read over SSH.
+            var sensors = k == ResourceKind.Node && running ? SensorsOf(node) : null;
+            var reading = sensors?.Reading;
+            var (netIn, netOut) = reading is { RxBytes: { } rx, TxBytes: { } tx } ? Rates(id, rx, tx, sensors!.ReadAt)
+                : sensors is null ? Rates(id, (long)Num(r, "netin"), (long)Num(r, "netout"), now)
+                : (0, 0);
             list.Add(new ResourceSnapshot(
                 id, k == ResourceKind.Node ? node : $"{Num(r, "vmid")} · {Str(r, "name")}", k, node,
-                Str(r, "status") is "running" or "online", Num(r, "cpu"),
+                running, Num(r, "cpu"),
                 (long)Num(r, "mem"), (long)Num(r, "maxmem"), (long)Num(r, "disk"), (long)Num(r, "maxdisk"),
-                TempC: null, netIn, netOut, Connections: null, TimeSpan.FromSeconds(Num(r, "uptime"))));
+                reading?.TempC, netIn, netOut, reading?.Connections, TimeSpan.FromSeconds(Num(r, "uptime")),
+                sensors?.Note));
         }
         return list;
+    }
+
+    NodeSensors SensorsOf(string node)
+    {
+        if (!_sensors.TryGetValue(node, out var sensors))
+            _sensors[node] = sensors = new NodeSensors(_cfg, ct => NodeAddressAsync(node, ct));
+        sensors.Poll();
+        return sensors;
     }
 
     public async Task<string> ApplyAsync(string id, PowerAction action, CancellationToken ct)
@@ -172,7 +209,11 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         return text.Length > 0 ? text : null;
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _http.Dispose();
+        foreach (var s in _sensors.Values) s.Dispose();
+    }
 
     async Task<JsonDocument> GetAsync(string path, CancellationToken ct)
     {

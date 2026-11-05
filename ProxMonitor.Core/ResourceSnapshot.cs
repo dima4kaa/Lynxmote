@@ -16,11 +16,12 @@ public sealed record ResourceSnapshot(
     long MemTotal,
     long DiskUsed,
     long DiskTotal,
-    double? TempC, // needs SSH + lm-sensors on real nodes
+    double? TempC, // read over SSH on real nodes
     long NetIn, // bytes/s
     long NetOut,
     int? Connections, // needs SSH on real nodes
-    TimeSpan Uptime);
+    TimeSpan Uptime,
+    string? SensorNote = null); // why a real node has no temperature, e.g. SSH login not saved yet
 
 /// <summary>Where snapshots come from: the demo cluster or a real Proxmox server.</summary>
 public interface IResourceSource

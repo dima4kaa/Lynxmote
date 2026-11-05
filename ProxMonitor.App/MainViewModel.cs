@@ -23,6 +23,8 @@ public partial class SourceState(IResourceSource source, Func<string, Thresholds
     public string Title => Source.Title;
     public DateTime LastPoll { get; set; }
     public bool Busy { get; set; }
+    /// <summary>The server's last reported problem, so it is announced once and not on every poll.</summary>
+    public string? Problem { get; set; }
     [ObservableProperty] private bool _online = true;
 }
 
@@ -491,6 +493,11 @@ public partial class MainViewModel : ObservableObject
                 Push(new AlertEvent(DateTime.Now, Severity.Info, s.Title, L.T("Связь восстановлена")));
             }
             Merge(s, snaps);
+            if (s.Source is ProxmoxSource { Problem: var problem } && problem != s.Problem)
+            {
+                s.Problem = problem;
+                if (problem is not null) Push(new AlertEvent(DateTime.Now, Severity.Warning, s.Title, problem));
+            }
             foreach (var e in s.Engine.Observe(snaps, DateTime.Now))
                 Push(e with { Id = e.Id is null ? null : s.Source.Key + ":" + e.Id });
         }

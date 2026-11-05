@@ -29,6 +29,11 @@ sealed class FakeProxmox : IAsyncDisposable
         ]}
         """;
 
+    // What a token with "Privilege Separation" and no permissions gets: the node without stats, no guests.
+    const string ResourcesWithoutRights = """
+        {"data":[{"id":"node/pve","type":"node","node":"pve","status":"online","level":""}]}
+        """;
+
     readonly WebApplication _app;
     public X509Certificate2 Cert { get; }
     public string Url { get; }
@@ -38,7 +43,7 @@ sealed class FakeProxmox : IAsyncDisposable
     FakeProxmox(WebApplication app, X509Certificate2 cert, string url, List<string> received) =>
         (_app, Cert, Url, Received) = (app, cert, url, received);
 
-    public static async Task<FakeProxmox> StartAsync()
+    public static async Task<FakeProxmox> StartAsync(bool rights = true)
     {
         using var key = RSA.Create(2048);
         var req = new CertificateRequest("CN=pve", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -60,7 +65,7 @@ sealed class FakeProxmox : IAsyncDisposable
             }
             await next();
         });
-        app.MapGet("/api2/json/cluster/resources", () => Results.Text(Resources, "application/json"));
+        app.MapGet("/api2/json/cluster/resources", () => Results.Text(rights ? Resources : ResourcesWithoutRights, "application/json"));
         app.MapGet("/api2/json/cluster/status", () => Results.Text(
             """{"data":[{"type":"cluster","name":"lab"},{"type":"node","name":"pve","ip":"10.0.0.5","online":1}]}""", "application/json"));
         app.MapGet("/api2/json/nodes/pve/lxc/101/interfaces", () => Results.Text(
@@ -116,6 +121,30 @@ public class ProxmoxSourceTests
         await using var pve = await FakeProxmox.StartAsync();
         var result = await ProxmoxSource.TestAsync(pve.Config(pinned: true), "wrong");
         Assert.Equal("Неверный токен", result.Message);
+    }
+
+    [Fact]
+    public async Task Token_without_rights_is_explained()
+    {
+        await using var pve = await FakeProxmox.StartAsync(rights: false);
+        var result = await ProxmoxSource.TestAsync(pve.Config(pinned: true), FakeProxmox.Secret);
+        Assert.False(result.Ok);
+        Assert.Contains("PVEAuditor", result.Message);
+
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+        await source.FetchAsync(default);
+        Assert.Contains("PVEAuditor", source.Problem);
+    }
+
+    [Fact]
+    public async Task Real_nodes_without_ssh_say_why_temperature_is_missing()
+    {
+        await using var pve = await FakeProxmox.StartAsync();
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+        var node = (await source.FetchAsync(default))[0];
+        Assert.Null(source.Problem);
+        Assert.Null(node.TempC);
+        Assert.Equal("нужен SSH", node.SensorNote);
     }
 
     [Fact]

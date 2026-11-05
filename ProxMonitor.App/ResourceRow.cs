@@ -74,11 +74,12 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         DiskPct = Pct(s.DiskUsed, s.DiskTotal);
         DiskText = L.F("{0} / {1} ГБ", Gb(s.DiskUsed), Gb(s.DiskTotal));
         Temp = s.TempC;
-        TempText = s.TempC is { } c ? $"{c:0} °C" : "—";
+        TempText = s.TempC is { } c ? $"{c:0} °C" : s.SensorNote ?? "—";
         NetTotal = s.NetIn + s.NetOut;
-        NetText = s.Running ? $"↓ {Rate(s.NetIn)}  ↑ {Rate(s.NetOut)}" : "—";
+        // A real node's traffic comes over SSH with its connections, so the same note explains a missing one.
+        NetText = !s.Running ? "—" : s.Connections is null && s.SensorNote is { } note ? note : $"↓ {Rate(s.NetIn)}  ↑ {Rate(s.NetOut)}";
         Connections = s.Connections;
-        ConnectionsText = s.Connections?.ToString() ?? "—";
+        ConnectionsText = s.Connections?.ToString() ?? s.SensorNote ?? "—";
         Uptime = s.Uptime;
         UptimeText = s.Running ? FormatUptime(s.Uptime) : "—";
         Health = !s.Running ? Health.Off

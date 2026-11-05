@@ -446,6 +446,7 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception e)
             {
+                Log.Write(r.Name, $"{action} failed: {e}");
                 Push(new AlertEvent(DateTime.Now, Severity.Warning, r.Name, L.F("Ошибка: {0}", ProxmoxSource.Describe(e)), r.Key));
             }
         }
@@ -481,6 +482,12 @@ public partial class MainViewModel : ObservableObject
 
     async Task PollAsync(SourceState s)
     {
+        var real = s.Source is ProxmoxSource; // the demo's made-up alerts stay out of the log
+        void Report(AlertEvent e)
+        {
+            if (real) Log.Write(s.Title, $"{e.Severity}: {e.ResourceName}: {e.Message}");
+            Push(e);
+        }
         s.Busy = true;
         s.LastPoll = DateTime.UtcNow;
         try
@@ -490,22 +497,23 @@ public partial class MainViewModel : ObservableObject
             if (!s.Online)
             {
                 s.Online = true;
-                Push(new AlertEvent(DateTime.Now, Severity.Info, s.Title, L.T("Связь восстановлена")));
+                Report(new AlertEvent(DateTime.Now, Severity.Info, s.Title, L.T("Связь восстановлена")));
             }
             Merge(s, snaps);
             if (s.Source is ProxmoxSource { Problem: var problem } && problem != s.Problem)
             {
                 s.Problem = problem;
-                if (problem is not null) Push(new AlertEvent(DateTime.Now, Severity.Warning, s.Title, problem));
+                if (problem is not null) Report(new AlertEvent(DateTime.Now, Severity.Warning, s.Title, problem));
             }
             foreach (var e in s.Engine.Observe(snaps, DateTime.Now))
-                Push(e with { Id = e.Id is null ? null : s.Source.Key + ":" + e.Id });
+                Report(e with { Id = e.Id is null ? null : s.Source.Key + ":" + e.Id });
         }
         catch (Exception e)
         {
             if (Sources.Contains(s) && s.Online)
             {
                 s.Online = false;
+                if (real) Log.Write(s.Title, "poll failed: " + e);
                 Push(new AlertEvent(DateTime.Now, Severity.Critical, s.Title, L.F("Нет связи: {0}", ProxmoxSource.Describe(e))));
                 foreach (var row in Rows.Where(r => r.SourceKey == s.Source.Key)) row.MarkStale();
             }

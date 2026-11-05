@@ -14,6 +14,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Log.Start(Path.Combine(Path.GetDirectoryName(AppSettings.DefaultPath)!, "proxmonitor.log"));
+            Log.Write("app", $"ProxMonitor {typeof(App).Assembly.GetName().Version} started on {Environment.OSVersion}");
             var settings = AppSettings.Load();
             L.English = settings.Language == "en"; // before any text is built
             var vm = new MainViewModel(settings);

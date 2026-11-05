@@ -248,5 +248,6 @@ public static partial class L
         ["нет датчика"] = "no sensor",
         ["нужен SSH"] = "needs SSH",
         ["Токену {0} не хватает прав, поэтому не видно нагрузку и VM. Выдайте роль PVEAuditor на путь /: Datacenter → Permissions → Add → API Token Permission."] = "Token {0} lacks rights, so load and VMs are hidden. Give it the PVEAuditor role on path /: Datacenter → Permissions → Add → API Token Permission.",
+        ["Журнал диагностики"] = "Diagnostic log",
     };
 }

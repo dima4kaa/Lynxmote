@@ -181,6 +181,7 @@
               <Separator />
               <MenuItem Header="{app:T 'Виджеты…'}" Click="OpenWidgets" />
               <MenuItem Header="{app:T 'Настройки…'}" Click="OpenSettings" />
+              <MenuItem Header="{app:T 'Журнал диагностики'}" Click="OpenLog" />
               <Separator />
               <MenuItem Header="{app:T 'Выход'}" Click="Exit_Click" />
             </MenuFlyout>

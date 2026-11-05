@@ -88,6 +88,10 @@ public partial class MainWindow : Window
 
     void Exit_Click(object? sender, RoutedEventArgs e) => Close();
 
+    // shortcut: Explorer is Windows only; use TopLevel.Launcher when the app ships for other OSes.
+    void OpenLog(object? sender, RoutedEventArgs e) =>
+        System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{Log.FilePath}\"");
+
     void ToggleNodes_Click(object? sender, RoutedEventArgs e) => Vm.NodesCollapsed = !Vm.NodesCollapsed;
 
     async void ConnectServer(object? sender, RoutedEventArgs e)

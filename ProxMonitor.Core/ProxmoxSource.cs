@@ -18,7 +18,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     readonly Dictionary<string, (long In, long Out, DateTime At, long RateIn, long RateOut)> _counters = [];
     readonly Dictionary<string, string> _nodeOf = [];
     readonly Dictionary<string, NodeSensors> _sensors = [];
-    string? _seenCert;
+    string? _seenCert, _shape;
 
     public ProxmoxSource(ServerConfig cfg, string secret)
     {
@@ -40,6 +40,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             Timeout = TimeSpan.FromSeconds(5),
         };
         _http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"PVEAPIToken={cfg.TokenId}={secret}");
+        Log.Write(Title, $"server {cfg.Url}, token {cfg.TokenId}, cert pinned: {cfg.PinnedCert is not null}, ssh login: {cfg.SshUser ?? "none"}");
     }
 
     public string Key { get; }
@@ -66,6 +67,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         try
         {
             using var doc = await source.GetAsync("cluster/resources?type=node", default);
+            Log.Write(cfg.Name, "connect test: " + doc.RootElement.GetRawText());
             var nodes = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
             return LacksRights(nodes)
                 ? new(false, NoRights(cfg.TokenId))
@@ -73,10 +75,12 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         }
         catch (HttpRequestException e) when (e.InnerException is AuthenticationException && source._seenCert is { } cert)
         {
+            Log.Write(cfg.Name, "connect test: certificate not confirmed yet, SHA-256 " + cert);
             return new(false, L.T("Сертификат сервера не подтверждён"), cert);
         }
         catch (Exception e)
         {
+            Log.Write(cfg.Name, "connect test failed: " + e);
             return new(false, Describe(e));
         }
     }
@@ -96,6 +100,10 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         var list = new List<ResourceSnapshot>();
         var all = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
         Problem = LacksRights(all.Where(r => Str(r, "type") == "node")) ? NoRights(_cfg.TokenId) : null;
+        // The full answer only when its make-up changes, not every 2 s.
+        var shape = string.Join(" ", all.Select(r => Str(r, "id"))) + Problem;
+        if (shape != _shape) Log.Write(Title, "cluster/resources changed: " + doc.RootElement.GetRawText());
+        _shape = shape;
         foreach (var r in all)
         {
             ResourceKind? kind = Str(r, "type") switch
@@ -171,6 +179,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         }
         catch (Exception e) when (e is ProxmoxException or HttpRequestException or JsonException)
         {
+            Log.Write(Title, $"address of node {node} from cluster/status: {e.Message}, using the API host");
         }
         return _http.BaseAddress!.Host;
     }
@@ -199,6 +208,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
                                       or JsonException or KeyNotFoundException or InvalidOperationException)
         {
+            Log.Write(Title, $"address of {id}: {e.Message}");
             return null;
         }
     }

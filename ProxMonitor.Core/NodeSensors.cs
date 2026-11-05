@@ -48,11 +48,12 @@ public sealed class NodeSensors(ServerConfig cfg, Func<CancellationToken, Task<s
     DateTime _next;
     bool _busy;
     string? _refused; // a login the node rejected is not retried, so fail2ban doesn't ban this PC
+    string? _host;
 
     public NodeReading? Reading { get; private set; }
     public DateTime ReadAt { get; private set; }
     /// <summary>Why there is no reading, short enough for the temperature field; null when fine.</summary>
-    public string? Note { get; private set; }
+    public string? Note { get; private set; } = "…"; // until the first read
 
     /// <summary>Starts a background read if one is due; results show up on a later poll.</summary>
     public void Poll()
@@ -70,7 +71,7 @@ public sealed class NodeSensors(ServerConfig cfg, Func<CancellationToken, Task<s
             var password = Secrets.Unprotect(cfg.ProtectedSshPassword);
             if (cfg.SshUser is not { } user || password is null)
             {
-                Fail(L.T("нужен SSH"));
+                Fail(L.T("нужен SSH"), "no SSH login saved yet");
                 return;
             }
             if (_refused == user + "\n" + password) return;
@@ -78,11 +79,11 @@ public sealed class NodeSensors(ServerConfig cfg, Func<CancellationToken, Task<s
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             if (_ssh is not { IsConnected: true })
             {
-                var host = await address(cts.Token);
+                var host = _host = await address(cts.Token);
                 // The host key is confirmed once in the terminal; never trust an unknown one silently.
                 if (!cfg.SshHostKeys.TryGetValue(host, out var key))
                 {
-                    Fail(L.T("нужен SSH"));
+                    Fail(L.T("нужен SSH"), "host key not confirmed in the terminal yet");
                     return;
                 }
                 _ssh?.Dispose();
@@ -95,17 +96,17 @@ public sealed class NodeSensors(ServerConfig cfg, Func<CancellationToken, Task<s
             await cmd.ExecuteAsync(cts.Token);
             Reading = Parse(cmd.Result);
             ReadAt = DateTime.UtcNow;
-            Note = Reading.TempC is null ? L.T("нет датчика") : null;
+            SetNote(Reading.TempC is null ? L.T("нет датчика") : null, $"{Reading}, raw output:\n{cmd.Result}");
         }
-        catch (SshAuthenticationException)
+        catch (SshAuthenticationException e)
         {
             _refused = cfg.SshUser + "\n" + Secrets.Unprotect(cfg.ProtectedSshPassword);
-            Drop(L.T("SSH: неверный пароль"));
+            Drop(L.T("SSH: неверный пароль"), e.Message);
         }
-        catch (Exception)
+        catch (Exception e)
         {
             _next = DateTime.UtcNow + AfterError;
-            Drop(L.T("SSH недоступен"));
+            Drop(L.T("SSH недоступен"), e.ToString());
         }
         finally
         {
@@ -113,15 +114,22 @@ public sealed class NodeSensors(ServerConfig cfg, Func<CancellationToken, Task<s
         }
     }
 
-    void Fail(string note)
+    /// <summary>Logs only changes, so a node read every 10 s doesn't flood the log.</summary>
+    void SetNote(string? note, string detail)
     {
-        Reading = null;
+        if (note != Note) Log.Write($"{cfg.Name} ssh {_host}", $"{note ?? "ok"}: {detail}");
         Note = note;
     }
 
-    void Drop(string note)
+    void Fail(string note, string detail)
     {
-        Fail(note);
+        Reading = null;
+        SetNote(note, detail);
+    }
+
+    void Drop(string note, string detail)
+    {
+        Fail(note, detail);
         _ssh?.Dispose();
         _ssh = null;
     }

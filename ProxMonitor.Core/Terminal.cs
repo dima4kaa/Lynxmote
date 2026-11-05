@@ -91,6 +91,7 @@ public sealed class SshTerminal : ITerminal
         catch (Exception e)
         {
             client.Dispose();
+            Log.Write($"ssh {user}@{host}", "connect failed: " + e);
             if (seen is not null && seen != pinnedHostKey) return new(null, UnknownHostKey: seen);
             return new(null, Error: e is SshAuthenticationException ? L.T("Неверный логин или пароль") : e.Message);
         }

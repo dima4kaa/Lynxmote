@@ -137,6 +137,32 @@ public class ProxmoxSourceTests
     }
 
     [Fact]
+    public async Task Log_keeps_server_answers_but_never_the_secret()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"pm-log-{Guid.NewGuid():N}.log");
+        Log.Start(path);
+        try
+        {
+            await using var pve = await FakeProxmox.StartAsync(rights: false);
+            await ProxmoxSource.TestAsync(pve.Config(pinned: true), FakeProxmox.Secret);
+            using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+            await source.FetchAsync(default);
+            await source.FetchAsync(default); // unchanged answer: not logged twice
+
+            var log = File.ReadAllText(path);
+            Assert.Contains("\"node/pve\"", log);
+            Assert.Contains("нужен SSH: no SSH login saved yet", log);
+            Assert.Single(System.Text.RegularExpressions.Regex.Matches(log, "cluster/resources changed"));
+            Assert.DoesNotContain(FakeProxmox.Secret, log);
+        }
+        finally
+        {
+            Log.FilePath = null;
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public async Task Real_nodes_without_ssh_say_why_temperature_is_missing()
     {
         await using var pve = await FakeProxmox.StartAsync();

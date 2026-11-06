@@ -43,7 +43,18 @@ sealed class FakeProxmox : IAsyncDisposable
     FakeProxmox(WebApplication app, X509Certificate2 cert, string url, List<string> received) =>
         (_app, Cert, Url, Received) = (app, cert, url, received);
 
-    public static async Task<FakeProxmox> StartAsync(bool rights = true)
+    // Trimmed from a real get-fsinfo: /boot/efi and a bind mount of sda1 that must count once.
+    const string FsInfo = """
+        {"data":{"result":[
+          {"name":"sda1","mountpoint":"/","type":"ext4","total-bytes":20000000000,"used-bytes":5000000000},
+          {"name":"sda1","mountpoint":"/var/lib/docker","type":"ext4","total-bytes":20000000000,"used-bytes":5000000000},
+          {"name":"sda15","mountpoint":"/boot/efi","type":"vfat","total-bytes":100000000,"used-bytes":10000000},
+          {"name":"sr0","mountpoint":"/media/cdrom","type":"iso9660"}
+        ]}}
+        """;
+
+    /// <param name="agent">Whether VM 100 runs qemu-guest-agent; without it Proxmox answers 500.</param>
+    public static async Task<FakeProxmox> StartAsync(bool rights = true, bool agent = true)
     {
         using var key = RSA.Create(2048);
         var req = new CertificateRequest("CN=pve", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -66,6 +77,9 @@ sealed class FakeProxmox : IAsyncDisposable
             await next();
         });
         app.MapGet("/api2/json/cluster/resources", () => Results.Text(rights ? Resources : ResourcesWithoutRights, "application/json"));
+        app.MapGet("/api2/json/nodes/pve/qemu/100/agent/get-fsinfo", () => agent
+            ? Results.Text(FsInfo, "application/json")
+            : Results.Problem("No QEMU guest agent configured", statusCode: 500));
         app.MapGet("/api2/json/cluster/status", () => Results.Text(
             """{"data":[{"type":"cluster","name":"lab"},{"type":"node","name":"pve","ip":"10.0.0.5","online":1}]}""", "application/json"));
         app.MapGet("/api2/json/nodes/pve/lxc/101/interfaces", () => Results.Text(
@@ -163,6 +177,38 @@ public class ProxmoxSourceTests
     }
 
     [Fact]
+    public async Task Vm_disk_comes_from_the_guest_agent()
+    {
+        await using var pve = await FakeProxmox.StartAsync();
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+        var vm = await PollUntil(source, "qemu/100", s => s.DiskTotal > 0);
+        Assert.Equal(20_100_000_000, vm.DiskTotal);
+        Assert.Equal(5_010_000_000, vm.DiskUsed);
+        Assert.Null(vm.Note);
+    }
+
+    [Fact]
+    public async Task Vm_without_guest_agent_has_unknown_disk_not_zero()
+    {
+        await using var pve = await FakeProxmox.StartAsync(agent: false);
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+        var vm = await PollUntil(source, "qemu/100", s => s.Note is not null);
+        Assert.Equal(0, vm.DiskTotal); // Proxmox says disk 0 of 32 GB, which would read as an empty disk
+        Assert.Equal("нужен qemu-guest-agent", vm.Note);
+    }
+
+    /// <summary>The agent is asked in the background, so its answer shows up on a later poll.</summary>
+    static async Task<ResourceSnapshot> PollUntil(ProxmoxSource source, string id, Func<ResourceSnapshot, bool> done)
+    {
+        for (var i = 0; ; i++)
+        {
+            var snap = (await source.FetchAsync(default)).Single(s => s.Id == id);
+            if (done(snap) || i == 50) return snap;
+            await Task.Delay(50);
+        }
+    }
+
+    [Fact]
     public async Task Real_nodes_without_ssh_say_why_temperature_is_missing()
     {
         await using var pve = await FakeProxmox.StartAsync();
@@ -170,7 +216,7 @@ public class ProxmoxSourceTests
         var node = (await source.FetchAsync(default))[0];
         Assert.Null(source.Problem);
         Assert.Null(node.TempC);
-        Assert.Equal("нужен SSH", node.SensorNote);
+        Assert.Equal("нужен SSH", node.Note);
     }
 
     [Fact]

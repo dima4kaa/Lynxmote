@@ -21,6 +21,7 @@ public partial class PropertiesWindow : Window
     {
         (_row, _vm) = (row, vm);
         DataContext = row;
+        if (!row.IsNode) Grid.SetColumnSpan(NetCard, 3); // VMs and containers have no temperature card
         Title = L.F("Свойства: {0}", row.Name);
         var events = new ObservableCollection<AlertEvent>(vm.Events.Where(e => e.Id == row.Key));
         EventsList.ItemsSource = events;
@@ -90,8 +91,12 @@ public partial class PropertiesWindow : Window
             {
                 var result = await terminal.RunAsync(NetConnections.Command, default);
                 var list = NetConnections.Parse(result.Output);
-                ShowConnections(list, result.ExitCode != 0 ? result.Output
+                // qm guest exec fails with "No QEMU guest agent configured" or "...agent is not running".
+                ShowConnections(list, result.ExitCode != 0 && result.Output.Contains("guest agent", StringComparison.OrdinalIgnoreCase)
+                    ? L.T("Внутри VM нужен qemu-guest-agent: установите пакет qemu-guest-agent и включите его в Proxmox (VM → Options → QEMU Guest Agent)")
+                    : result.ExitCode != 0 ? result.Output
                     : list.Count == 0 ? L.T("Подключений нет") : L.F("Установленных соединений: {0}", list.Count));
+                if (result.ExitCode == 0) ConnectionsCount.Text = list.Count.ToString();
             }
             catch (Exception ex)
             {
@@ -102,6 +107,7 @@ public partial class PropertiesWindow : Window
 
     void ShowConnections(List<NetConnection> list, string? hint)
     {
+        ConnectionsCount.Text = "—";
         ConnectionsList.ItemsSource = list;
         ConnectionsHeader.IsVisible = list.Count > 0;
         ConnectionsHint.Text = hint;

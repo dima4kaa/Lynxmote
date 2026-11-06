@@ -33,7 +33,7 @@ public sealed class WidgetConfig
     public string Kind { get; set; } = WidgetKind.Server;
     public string Title { get; set; } = "";
     public List<string> Keys { get; set; } = []; // selection for group/summary/top/command; empty means all
-    public string Metric { get; set; } = "cpu";  // top: cpu | ram | disk | temp
+    public string Metric { get; set; } = "cpu";  // top: cpu | ram | disk
     public int Count { get; set; } = 3;          // top: how many
     public string Command { get; set; } = "";    // command: what to run
     public string Key { get; set; } = ""; // server kind: resource key

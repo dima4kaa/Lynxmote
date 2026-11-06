@@ -91,12 +91,10 @@ public partial class WidgetVm(WidgetConfig config) : ObservableObject
             {
                 "ram" => r => r.MemPct,
                 "disk" => r => r.DiskPct,
-                "temp" => r => r.Temp ?? 0,
-                _ => r => r.Cpu,
+                _ => r => r.Cpu, // also old "temp" widgets: VMs and containers have no sensors
             };
-            var unit = Config.Metric == "temp" ? " °C" : "%";
             Lines = pool.Where(r => r.Running).OrderByDescending(metric).Take(Math.Max(1, Config.Count))
-                .Select(r => new WidgetLine(r, $"{metric(r):0}{unit}", Math.Min(100, metric(r)))).ToList();
+                .Select(r => new WidgetLine(r, $"{metric(r):0}%", Math.Min(100, metric(r)))).ToList();
         }
         else if (IsSummary)
         {

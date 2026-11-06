@@ -46,7 +46,6 @@ public static partial class L
         ["Готово в {0:HH:mm:ss}"] = "Done at {0:HH:mm:ss}",
         ["Графики показывают историю с момента запуска приложения, до 10 минут."] = "Charts show history since the app started, up to 10 minutes.",
         ["Группа серверов"] = "Server group",
-        ["Датчиков нет: температура есть только у нод и требует SSH и lm-sensors"] = "No sensors: only nodes report temperature, and it needs SSH and lm-sensors",
         ["Двойной клик — показать сервер в таблице"] = "Double-click to show the server in the table",
         ["Действие доступно только для VM и контейнеров"] = "Only VMs and containers support this action",
         ["Действуют только для этого сервера"] = "Apply to this server only",
@@ -141,7 +140,6 @@ public static partial class L
         ["Переместить в раздел"] = "Move to section",
         ["Переместить во вкладку"] = "Move to tab",
         ["По какому показателю"] = "By metric",
-        ["Подкл."] = "Conn.",
         ["Подключение…"] = "Connecting…",
         ["Подключений нет"] = "No connections",
         ["Подключения"] = "Connections",
@@ -249,5 +247,7 @@ public static partial class L
         ["нужен SSH"] = "needs SSH",
         ["Токену {0} не хватает прав, поэтому не видно нагрузку и VM. Выдайте роль PVEAuditor на путь /: Datacenter → Permissions → Add → API Token Permission."] = "Token {0} lacks rights, so load and VMs are hidden. Give it the PVEAuditor role on path /: Datacenter → Permissions → Add → API Token Permission.",
         ["Журнал диагностики"] = "Diagnostic log",
+        ["Температура читается по SSH: один раз войдите в терминал ноды"] = "Temperature is read over SSH: log in to the node terminal once",
+        ["Внутри VM нужен qemu-guest-agent: установите пакет qemu-guest-agent и включите его в Proxmox (VM → Options → QEMU Guest Agent)"] = "The VM needs qemu-guest-agent: install the qemu-guest-agent package and enable it in Proxmox (VM → Options → QEMU Guest Agent)",
     };
 }

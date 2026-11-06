@@ -343,7 +343,7 @@
                              Fill="{Binding Health, Converter={x:Static app:Converters.HealthDot}}" />
                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                   </DockPanel>
-                  <Grid ColumnDefinitions="40,*,64" RowDefinitions="20,20">
+                  <Grid ColumnDefinitions="40,*,64" RowDefinitions="20,20,20">
                     <TextBlock Classes="k" Text="CPU" />
                     <app:Sparkline Grid.Column="1" Height="16" Values="{Binding CpuRecent}" Capacity="60"
                                    Stroke="{Binding Cpu, Converter={x:Static app:Converters.LoadBrush}}" />
@@ -352,6 +352,10 @@
                     <ProgressBar Grid.Row="1" Grid.Column="1" Classes="thin" Value="{Binding MemPct}"
                                  Foreground="{Binding MemPct, Converter={x:Static app:Converters.LoadBrush}}" />
                     <TextBlock Grid.Row="1" Grid.Column="2" Classes="v" Text="{Binding MemPct, StringFormat='{}{0:0}%'}" />
+                    <TextBlock Grid.Row="2" Classes="k" Text="{app:T 'Диск'}" />
+                    <ProgressBar Grid.Row="2" Grid.Column="1" Classes="thin" Value="{Binding DiskPct}" ToolTip.Tip="{Binding DiskText}"
+                                 Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Classes="v" Text="{Binding DiskPctText}" />
                   </Grid>
                   <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="11" Text="{Binding UptimeText}" />
@@ -456,12 +460,12 @@
                         </StackPanel>
                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
                           <StackPanel Spacing="2">
-                            <TextBlock Classes="k" Text="{app:T 'Температура'}" />
-                            <TextBlock Classes="v" Text="{Binding TempText}" Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
-                          </StackPanel>
-                          <StackPanel Grid.Column="1" Spacing="2">
                             <TextBlock Classes="k" Text="{app:T 'Аптайм'}" />
                             <TextBlock Classes="v" Text="{Binding UptimeText}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="2" IsVisible="{Binding IsNode}">
+                            <TextBlock Classes="k" Text="{app:T 'Температура'}" />
+                            <TextBlock Classes="v" Text="{Binding TempText}" Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
                           </StackPanel>
                           <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2">
                             <TextBlock Classes="k" Text="{app:T 'Сеть'}" />
@@ -585,19 +589,10 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <Grid ColumnDefinitions="40,*" Margin="12,0" Background="Transparent" ToolTip.Tip="{Binding DiskText}">
-                    <TextBlock Text="{Binding DiskPct, StringFormat='{}{0:0}%'}" />
+                    <TextBlock Text="{Binding DiskPctText}" />
                     <ProgressBar Grid.Column="1" Classes="thin" Value="{Binding DiskPct}"
                                  Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
                   </Grid>
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-
-            <DataGridTemplateColumn Header="{app:T 'Темп.'}" SortMemberPath="Temp" Width="86">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate x:DataType="app:ResourceRow">
-                  <TextBlock Text="{Binding TempText}" FontWeight="Medium" Margin="12,0"
-                             Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -606,14 +601,6 @@
               <DataGridTemplateColumn.CellTemplate>
                 <DataTemplate x:DataType="app:ResourceRow">
                   <TextBlock Classes="muted" Text="{Binding NetText}" FontSize="12" Margin="12,0" />
-                </DataTemplate>
-              </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-
-            <DataGridTemplateColumn Header="{app:T 'Подкл.'}" SortMemberPath="Connections" Width="92">
-              <DataGridTemplateColumn.CellTemplate>
-                <DataTemplate x:DataType="app:ResourceRow">
-                  <TextBlock Text="{Binding ConnectionsText}" Margin="12,0" />
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
@@ -729,11 +716,17 @@
                 </Grid>
                 <Grid ColumnDefinitions="52,44,*" IsVisible="{Binding Disk}">
                   <TextBlock Classes="k" Text="{app:T 'Диск'}" />
-                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.DiskPct, StringFormat='{}{0:0}%'}" />
+                  <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.DiskPctText}" />
                   <ProgressBar Grid.Column="2" Classes="thin" Value="{Binding Row.DiskPct}"
                                Foreground="{Binding Row.DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
                 </Grid>
-                <Grid ColumnDefinitions="52,*" IsVisible="{Binding Temp}">
+                <Grid ColumnDefinitions="52,*">
+                  <Grid.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                      <Binding Path="Temp" />
+                      <Binding Path="Row.IsNode" FallbackValue="False" />
+                    </MultiBinding>
+                  </Grid.IsVisible>
                   <TextBlock Classes="k" Text="{app:T 'Темп.'}" />
                   <TextBlock Grid.Column="1" Classes="v" Text="{Binding Row.TempText}"
                              Foreground="{Binding Row.Temp, Converter={x:Static app:Converters.TempBrush}}" />

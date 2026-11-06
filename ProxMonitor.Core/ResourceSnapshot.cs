@@ -21,7 +21,7 @@ public sealed record ResourceSnapshot(
     long NetOut,
     int? Connections, // needs SSH on real nodes
     TimeSpan Uptime,
-    string? SensorNote = null); // why a real node has no temperature, e.g. SSH login not saved yet
+    string? Note = null); // why a real node's SSH figures or a VM's disk are missing, e.g. no saved SSH login
 
 /// <summary>Where snapshots come from: the demo cluster or a real Proxmox server.</summary>
 public interface IResourceSource

@@ -18,6 +18,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     readonly Dictionary<string, (long In, long Out, DateTime At, long RateIn, long RateOut)> _counters = [];
     readonly Dictionary<string, string> _nodeOf = [];
     readonly Dictionary<string, NodeSensors> _sensors = [];
+    readonly Dictionary<string, GuestDisk> _disks = [];
     string? _seenCert, _shape;
 
     public ProxmoxSource(ServerConfig cfg, string secret)
@@ -100,8 +101,8 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         var list = new List<ResourceSnapshot>();
         var all = doc.RootElement.GetProperty("data").EnumerateArray().ToList();
         Problem = LacksRights(all.Where(r => Str(r, "type") == "node")) ? NoRights(_cfg.TokenId) : null;
-        // The full answer only when its make-up changes, not every 2 s.
-        var shape = string.Join(" ", all.Select(r => Str(r, "id"))) + Problem;
+        // The full answer only when its make-up changes, not every 2 s; Proxmox shuffles the order on every call.
+        var shape = string.Join(" ", all.Select(r => Str(r, "id")).Order()) + Problem;
         if (shape != _shape) Log.Write(Title, "cluster/resources changed: " + doc.RootElement.GetRawText());
         _shape = shape;
         foreach (var r in all)
@@ -125,14 +126,72 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             var (netIn, netOut) = reading is { RxBytes: { } rx, TxBytes: { } tx } ? Rates(id, rx, tx, sensors!.ReadAt)
                 : sensors is null ? Rates(id, (long)Num(r, "netin"), (long)Num(r, "netout"), now)
                 : (0, 0);
+            // Proxmox always reports disk 0 for a VM: only qemu-guest-agent knows how full its filesystems are.
+            var disk = k == ResourceKind.Vm ? DiskOf(id, node, running) : null;
             list.Add(new ResourceSnapshot(
                 id, k == ResourceKind.Node ? node : $"{Num(r, "vmid")} · {Str(r, "name")}", k, node,
                 running, Num(r, "cpu"),
-                (long)Num(r, "mem"), (long)Num(r, "maxmem"), (long)Num(r, "disk"), (long)Num(r, "maxdisk"),
+                (long)Num(r, "mem"), (long)Num(r, "maxmem"),
+                disk?.Used ?? (long)Num(r, "disk"), disk?.Total ?? (long)Num(r, "maxdisk"),
                 reading?.TempC, netIn, netOut, reading?.Connections, TimeSpan.FromSeconds(Num(r, "uptime")),
-                sensors?.Note));
+                sensors?.Note ?? disk?.Note));
         }
         return list;
+    }
+
+    sealed class GuestDisk
+    {
+        public long Used, Total; // 0 until the agent answered once; kept while the VM is off
+        public string? Note;
+        public DateTime Next;
+        public bool Busy;
+    }
+
+    GuestDisk DiskOf(string id, string node, bool running)
+    {
+        if (!_disks.TryGetValue(id, out var d)) _disks[id] = d = new();
+        if (running && !d.Busy && DateTime.UtcNow >= d.Next)
+        {
+            d.Busy = true;
+            _ = ReadDiskAsync(d, id, node);
+        }
+        return d;
+    }
+
+    async Task ReadDiskAsync(GuestDisk d, string id, string node)
+    {
+        try
+        {
+            using var doc = await GetAsync($"nodes/{Uri.EscapeDataString(node)}/{id}/agent/get-fsinfo", default);
+            (d.Used, d.Total) = GuestFsUsage(doc.RootElement.GetProperty("data").GetProperty("result"));
+            d.Note = null;
+            d.Next = DateTime.UtcNow.AddSeconds(30);
+        }
+        catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
+                                      or JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            if (d.Note is null) Log.Write(Title, $"disk of {id} from the guest agent: {e.Message}");
+            d.Note = L.T("нужен qemu-guest-agent");
+            d.Next = DateTime.UtcNow.AddMinutes(1); // the user may install the agent meanwhile
+        }
+        finally
+        {
+            d.Busy = false;
+        }
+    }
+
+    /// <summary>Sum over the guest's filesystems; a device mounted twice (bind mounts, snaps) counts once.</summary>
+    public static (long Used, long Total) GuestFsUsage(JsonElement fsinfo)
+    {
+        var seen = new HashSet<string>();
+        long used = 0, total = 0;
+        foreach (var fs in fsinfo.EnumerateArray())
+        {
+            if (!fs.TryGetProperty("total-bytes", out var t) || t.ValueKind != JsonValueKind.Number || !seen.Add(Str(fs, "name") is { Length: > 0 } n ? n : Str(fs, "mountpoint"))) continue;
+            total += t.GetInt64();
+            used += (long)Num(fs, "used-bytes");
+        }
+        return (used, total);
     }
 
     NodeSensors SensorsOf(string node)

@@ -18,7 +18,7 @@ public partial class WidgetsWindow : Window
     ];
 
     static readonly (string Id, string Name)[] Metrics =
-        [("cpu", "CPU"), ("ram", "Память"), ("disk", "Диск"), ("temp", "Температура")];
+        [("cpu", "CPU"), ("ram", "Память"), ("disk", "Диск")];
 
     public WidgetsWindow()
     {

@@ -107,6 +107,7 @@
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" Width="300">
           <TextBlock Text="{app:T 'Вход по SSH'}" FontSize="18" FontWeight="SemiBold" Foreground="#E6E8EC" />
           <TextBlock x:Name="LoginHint" Foreground="#8A90A0" FontSize="12" TextWrapping="Wrap" />
+          <TextBox x:Name="AddressBox" IsVisible="False" Watermark="{app:T 'Адрес VM, например 192.168.1.50'}" />
           <TextBox x:Name="UserBox" Text="root" Watermark="{app:T 'Пользователь'}" />
           <TextBox x:Name="PasswordBox" PasswordChar="•" Watermark="{app:T 'Пароль'}" KeyDown="Password_KeyDown" />
           <Border x:Name="HostKeyPanel" IsVisible="False" Background="#14171D" CornerRadius="8" Padding="10">

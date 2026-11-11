@@ -91,9 +91,9 @@ public partial class PropertiesWindow : Window
             {
                 var result = await terminal.RunAsync(NetConnections.Command, default);
                 var list = NetConnections.Parse(result.Output);
-                // qm guest exec fails with "No QEMU guest agent configured" or "...agent is not running".
-                ShowConnections(list, result.ExitCode != 0 && result.Output.Contains("guest agent", StringComparison.OrdinalIgnoreCase)
-                    ? L.T("Внутри VM нужен qemu-guest-agent: установите пакет qemu-guest-agent и включите его в Proxmox (VM → Options → QEMU Guest Agent)")
+                // qm guest exec fails with "No QEMU guest agent configured" or "...agent is not running" (on stderr).
+                ShowConnections(list, result.ExitCode != 0 && Shell.NoAgent(result.Output)
+                    ? L.T("В VM нет qemu-guest-agent: откройте её «Терминал» один раз и войдите в неё по SSH")
                     : result.ExitCode != 0 ? result.Output
                     : list.Count == 0 ? L.T("Подключений нет") : L.F("Установленных соединений: {0}", list.Count));
                 if (result.ExitCode == 0) ConnectionsCount.Text = list.Count.ToString();

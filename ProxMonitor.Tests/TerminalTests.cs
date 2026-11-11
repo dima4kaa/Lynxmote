@@ -33,6 +33,22 @@ public class TerminalTests
         Assert.Equal(("QEMU guest agent is not running", 255), Shell.ParseGuestExec("QEMU guest agent is not running", 255));
 
     [Fact]
+    public void Qm_own_error_from_stderr_is_shown_and_recognized()
+    {
+        // No agent: qm prints nothing to stdout, dies with 255 and the reason on stderr.
+        var (output, code) = Shell.ParseGuestExec("", 255);
+        output = Shell.Merge(output, "QEMU guest agent is not running\n");
+        Assert.Equal(("QEMU guest agent is not running\n", 255), (output, code));
+        Assert.True(Shell.NoAgent(output));
+        Assert.True(Shell.NoAgent("No QEMU guest agent configured"));
+        Assert.False(Shell.NoAgent("VM 100 is not running"));
+    }
+
+    [Fact]
+    public void Stderr_goes_after_the_output() =>
+        Assert.Equal("a\nwarning", Shell.Merge("a\n", "warning"));
+
+    [Fact]
     public async Task Demo_terminal_tracks_folder()
     {
         using var t = new DemoTerminal("pve-01");

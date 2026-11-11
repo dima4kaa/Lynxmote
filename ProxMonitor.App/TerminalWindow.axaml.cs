@@ -31,6 +31,7 @@ public partial class TerminalWindow : Window
     CancellationTokenSource? _running;
     int _historyPos;
     string? _host, _seenHostKey;
+    bool _direct; // SSH into the VM itself, not through the node
 
     public TerminalWindow()
     {
@@ -65,11 +66,15 @@ public partial class TerminalWindow : Window
     {
         if (vm.SourceOf(row) is DemoSource) return (new DemoTerminal(LabelOf(row)), null);
         if (vm.SourceOf(row) is not ProxmoxSource source || vm.ConfigOf(row) is not { } cfg) return (null, L.T("Сервер не подключён"));
-        var firstLogin = L.T("Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его");
-        if (cfg.SshUser is not { } user || Secrets.Unprotect(cfg.ProtectedSshPassword) is not { } password) return (null, firstLogin);
-        var host = await source.NodeAddressAsync(row.Node, default);
-        if (!cfg.SshHostKeys.TryGetValue(host, out var key)) return (null, firstLogin);
         var (target, vmid) = TargetOf(row);
+        string host;
+        string? user, password;
+        if (cfg.GuestLogins.TryGetValue(row.LocalId, out var guest))
+            (host, user, password, target) = (guest.Host, guest.User, Secrets.Unprotect(guest.ProtectedPassword), TerminalTarget.Node);
+        else
+            (host, user, password) = (await source.NodeAddressAsync(row.Node, default), cfg.SshUser, Secrets.Unprotect(cfg.ProtectedSshPassword));
+        if (user is null || password is null || !cfg.SshHostKeys.TryGetValue(host, out var key))
+            return (null, L.T("Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его"));
         var r = await SshTerminal.ConnectAsync(host, user, password, key, LabelOf(row), target, vmid, default);
         return (r.Terminal, r.Terminal is null ? r.Error ?? L.T("Ключ сервера изменился, откройте «Терминал»") : null);
     }
@@ -91,7 +96,12 @@ public partial class TerminalWindow : Window
         LoginHint.Text = L.F(_row.IsNode ? "Команды выполняются на ноде {0} ({1})."
             : _row.LocalId.StartsWith("lxc/") ? "Команды выполняются на ноде {0} ({1}) внутри контейнера через pct exec."
             : "Команды выполняются на ноде {0} ({1}) внутри VM через qemu-guest-agent.", _row.Node, _host);
-        if (cfg.SshUser is { } user && Secrets.Unprotect(cfg.ProtectedSshPassword) is { } password)
+        var guest = cfg.GuestLogins.GetValueOrDefault(_row.LocalId);
+        if (guest is not null) AskGuestLogin(guest);
+        var (user, password) = guest is null
+            ? (cfg.SshUser, Secrets.Unprotect(cfg.ProtectedSshPassword))
+            : (guest.User, Secrets.Unprotect(guest.ProtectedPassword));
+        if (user is not null && password is not null)
         {
             UserBox.Text = user;
             PasswordBox.Text = password;
@@ -103,27 +113,82 @@ public partial class TerminalWindow : Window
         }
     }
 
+    /// <summary>No agent in the VM: log in to the VM itself instead of reaching into it from the node.</summary>
+    // shortcut: connects from this PC, port 22; tunnel through the node (ForwardedPortLocal) when VMs sit on a network this PC can't reach.
+    void AskGuestLogin(GuestLogin? saved)
+    {
+        _direct = true;
+        _seenHostKey = null;
+        HostKeyPanel.IsVisible = false;
+        AddressBox.IsVisible = true;
+        AddressBox.Text = saved?.Host;
+        UserBox.Text = saved?.User ?? "root";
+        PasswordBox.Text = ""; // never offer the node's password to another machine
+        LoginError.Text = "";
+        LoginHint.Text = L.T("В этой VM нет qemu-guest-agent, поэтому терминал подключается по SSH прямо к ней. Введите её адрес и логин.");
+    }
+
     async Task ConnectAsync(ServerConfig cfg)
     {
         var user = UserBox.Text?.Trim() ?? "";
         var password = PasswordBox.Text ?? "";
+        if (_direct && AddressBox.Text?.Trim() is var address && address != _host)
+        {
+            _host = address ?? "";
+            _seenHostKey = null; // a fingerprint belongs to the address it came from
+            HostKeyPanel.IsVisible = false;
+        }
         if (TrustBox.IsChecked == true && _seenHostKey is not null) cfg.SshHostKeys[_host!] = _seenHostKey;
 
         LoginButton.IsEnabled = false;
         StatusText.Text = L.T("подключение…");
-        var (target, vmid) = TargetOf(_row!);
+        var (target, vmid) = _direct ? (TerminalTarget.Node, 0) : TargetOf(_row!);
         var result = await SshTerminal.ConnectAsync(_host!, user, password, cfg.SshHostKeys.GetValueOrDefault(_host!),
             LabelOf(_row!), target, vmid, default);
-        LoginButton.IsEnabled = true;
 
         if (result.Terminal is { } terminal)
         {
-            cfg.SshUser = user;
-            cfg.ProtectedSshPassword = Secrets.Protect(password);
+            if (_direct) cfg.GuestLogins[_row!.LocalId] = new(_host!, user, Secrets.Protect(password));
+            else (cfg.SshUser, cfg.ProtectedSshPassword) = (user, Secrets.Protect(password));
             _vm!.SaveSettings();
+
+            // A stopped guest or a VM without the agent fails every command the same way: find out once, up front.
+            CommandResult? failed = null;
+            if (target != TerminalTarget.Node)
+            {
+                try
+                {
+                    var probe = await terminal.RunAsync("true", default);
+                    if (probe.ExitCode != 0) failed = probe;
+                }
+                catch (Exception)
+                {
+                    // The connection itself broke: the first real command reports it.
+                }
+            }
+            LoginButton.IsEnabled = true;
+            if (target == TerminalTarget.Vm && failed is not null && Shell.NoAgent(failed.Output))
+            {
+                terminal.Dispose();
+                AskGuestLogin(null);
+                ShowLogin();
+                return;
+            }
             Connected(terminal, $"ssh {user}@{_host}");
+            if (failed is not null)
+            {
+                _blocks.Add(new TerminalBlock(Shell.Compose("true", "~", target, vmid))
+                {
+                    Output = failed.Output,
+                    Footer = L.F("код {0} · {1:0.00} с", failed.ExitCode, failed.Duration.TotalSeconds),
+                    Failed = true,
+                });
+                StatusDot.Fill = new SolidColorBrush(Color.Parse("#F59E0B"));
+                StatusText.Text = L.T("гостевая система не отвечает");
+            }
             return;
         }
+        LoginButton.IsEnabled = true;
         ShowLogin();
         if (result.UnknownHostKey is { } key)
         {
@@ -145,7 +210,7 @@ public partial class TerminalWindow : Window
     {
         LoginPanel.IsVisible = true;
         StatusText.Text = L.T("нужен вход");
-        PasswordBox.Focus();
+        (_direct && string.IsNullOrEmpty(AddressBox.Text) ? AddressBox : PasswordBox).Focus();
     }
 
     void Connected(ITerminal terminal, string status)

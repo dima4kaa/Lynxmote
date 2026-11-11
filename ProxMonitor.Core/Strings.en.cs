@@ -248,6 +248,9 @@ public static partial class L
         ["Токену {0} не хватает прав, поэтому не видно нагрузку и VM. Выдайте роль PVEAuditor на путь /: Datacenter → Permissions → Add → API Token Permission."] = "Token {0} lacks rights, so load and VMs are hidden. Give it the PVEAuditor role on path /: Datacenter → Permissions → Add → API Token Permission.",
         ["Журнал диагностики"] = "Diagnostic log",
         ["Температура читается по SSH: один раз войдите в терминал ноды"] = "Temperature is read over SSH: log in to the node terminal once",
-        ["Внутри VM нужен qemu-guest-agent: установите пакет qemu-guest-agent и включите его в Proxmox (VM → Options → QEMU Guest Agent)"] = "The VM needs qemu-guest-agent: install the qemu-guest-agent package and enable it in Proxmox (VM → Options → QEMU Guest Agent)",
+        ["гостевая система не отвечает"] = "the guest does not respond",
+        ["В VM нет qemu-guest-agent: откройте её «Терминал» один раз и войдите в неё по SSH"] = "The VM has no qemu-guest-agent: open its Terminal once and log in to it over SSH",
+        ["В этой VM нет qemu-guest-agent, поэтому терминал подключается по SSH прямо к ней. Введите её адрес и логин."] = "This VM has no qemu-guest-agent, so the terminal connects over SSH straight to it. Enter its address and login.",
+        ["Адрес VM, например 192.168.1.50"] = "VM address, for example 192.168.1.50",
     };
 }

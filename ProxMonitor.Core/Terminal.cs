@@ -53,6 +53,16 @@ public static class Shell
             return (text, exitCode);
         }
     }
+
+    /// <summary>
+    /// pct and qm complain on their own stderr, outside the guest's "2>&amp;1": without it a stopped guest
+    /// or a missing agent looks like every command silently failing with code 255.
+    /// </summary>
+    public static string Merge(string output, string error) =>
+        error.Length == 0 ? output : output.Length == 0 ? error : output.TrimEnd('\n') + "\n" + error;
+
+    /// <summary>qm guest exec failed with "No QEMU guest agent configured" or "QEMU guest agent is not running".</summary>
+    public static bool NoAgent(string output) => output.Contains("guest agent", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record SshConnectResult(SshTerminal? Terminal, string? UnknownHostKey = null, string? Error = null);
@@ -76,7 +86,15 @@ public sealed class SshTerminal : ITerminal
         string host, string user, string password, string? pinnedHostKey,
         string label, TerminalTarget target, int vmid, CancellationToken ct)
     {
-        var client = new SshClient(host, user, password);
+        SshClient client;
+        try
+        {
+            client = new SshClient(host, user, password);
+        }
+        catch (ArgumentException e) // empty address or user
+        {
+            return new(null, Error: e.Message);
+        }
         string? seen = null;
         client.HostKeyReceived += (_, e) =>
         {
@@ -106,6 +124,7 @@ public sealed class SshTerminal : ITerminal
         var output = cmd.Result;
         var code = cmd.ExitStatus ?? -1;
         if (_target == TerminalTarget.Vm) (output, code) = Shell.ParseGuestExec(output, code);
+        output = Shell.Merge(output, cmd.Error);
         if (isCd && code == 0)
         {
             _cwd = output.Trim().Split('\n')[^1];

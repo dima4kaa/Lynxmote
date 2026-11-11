@@ -16,7 +16,10 @@ public sealed class ServerConfig
     public string? SshUser { get; set; }
     public string? ProtectedSshPassword { get; set; }
     public Dictionary<string, string> SshHostKeys { get; set; } = []; // host -> SHA-256 fingerprint the user confirmed
+    public Dictionary<string, GuestLogin> GuestLogins { get; set; } = []; // "qemu/100" -> SSH straight into a VM without the agent
 }
+
+public sealed record GuestLogin(string Host, string User, string? ProtectedPassword);
 
 public static class WidgetKind
 {

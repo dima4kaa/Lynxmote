@@ -1,14 +1,16 @@
-# ProxMonitor
+# Lynxmote
 
 Десктоп-приложение для мониторинга и управления серверами Proxmox VE: живая таблица нод, VM и контейнеров, предупреждения, виджеты и терминал. C# / .NET 10 / Avalonia.
+
+До версии 1.7.0 приложение называлось ProxMonitor. Настройки из `%AppData%\ProxMonitor` переносятся в `%AppData%\Lynxmote` сами при первом запуске.
 
 ## Запуск
 
 ```
-dotnet run --project ProxMonitor.App
+dotnet run --project Lynxmote.App
 ```
 
-Без сервера: кнопка **«Открыть демо»** или `dotnet run --project ProxMonitor.App -- --demo`.
+Без сервера: кнопка **«Открыть демо»** или `dotnet run --project Lynxmote.App -- --demo`.
 
 ## Подключение к Proxmox
 
@@ -25,7 +27,7 @@ dotnet run --project ProxMonitor.App
 
 ## Если что-то не работает
 
-Меню **ProxMonitor → Журнал диагностики** покажет файл `proxmonitor.log` (лежит в `%AppData%\ProxMonitor`). В нём ответы сервера, ошибки подключения и SSH. Секретов токена и паролей там нет. Пришлите этот файл тому, кто разбирается с проблемой.
+Меню **Lynxmote → Журнал диагностики** покажет файл `lynxmote.log` (лежит в `%AppData%\Lynxmote`). В нём ответы сервера, ошибки подключения и SSH. Секретов токена и паролей там нет. Пришлите этот файл тому, кто разбирается с проблемой.
 
 ## Тесты
 

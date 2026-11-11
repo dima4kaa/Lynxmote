@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Lynxmote.App/Lynxmote.App.csproj" />
+  <Project Path="Lynxmote.Core/Lynxmote.Core.csproj" />
+  <Project Path="Lynxmote.Tests/Lynxmote.Tests.csproj" />
+</Solution>

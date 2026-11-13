@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Renci.SshNet;
 using Renci.SshNet.Common;
 
@@ -25,17 +27,50 @@ public static class Shell
 
     public static bool IsCd(string command) => command == "cd" || command.StartsWith("cd ");
 
+    public static bool UsesSudo(string command) => Regex.IsMatch(command, @"\bsudo\b");
+
+    /// <summary>The name of a full-screen program (nano, htop…), which needs a real terminal this window is not; else null.</summary>
+    public static string? FullScreen(string command) =>
+        Regex.Match(command, @"^(sudo\s+)?(nano|vi|vim|htop|mc|tmux|screen|watch)\b") is { Success: true } m ? m.Groups[2].Value : null;
+
     /// <summary>The line sent to the node: keeps the working folder and reaches into guests via pct/qm.</summary>
-    public static string Compose(string command, string cwd, TerminalTarget target, int vmid)
+    /// <param name="root">Logged in as root (always so inside a guest reached with pct/qm).</param>
+    /// <param name="sudoPassword">The caller writes the user's password to stdin, for sudo to check once.</param>
+    public static string Compose(string command, string cwd, TerminalTarget target, int vmid, bool root = true, bool sudoPassword = false)
     {
         var inner = cwd == "~" ? command : $"cd {Quote(cwd)} && {command}";
+        // root needs no sudo, and a Proxmox node or a bare container doesn't even have it installed.
+        if (root && UsesSudo(command)) inner = "command -v sudo >/dev/null || sudo() { \"$@\"; }; " + inner;
+        // fdisk, service, reboot live in sbin, which a plain user's PATH lacks without a login shell.
+        if (!root) inner = "PATH=\"$PATH:/usr/local/sbin:/usr/sbin:/sbin\"; " + inner;
+        // stdin is closed everywhere: a command that asks a question fails at once instead of hanging forever.
         return target switch
         {
-            TerminalTarget.Node => $"{{ {inner}\n}} 2>&1",
-            TerminalTarget.Container => $"pct exec {vmid} -- bash -lc {Quote(inner + " 2>&1")}",
+            // sudo has no terminal to ask on: it checks the password from stdin once and remembers it for this line.
+            TerminalTarget.Node when sudoPassword => $"{{ sudo -S -p '' -v && {{ {inner}\n}} </dev/null; }} 2>&1",
+            TerminalTarget.Node => $"{{ {inner}\n}} </dev/null 2>&1",
+            TerminalTarget.Container => $"pct exec {vmid} -- bash -lc {Quote(inner + " 2>&1")} </dev/null",
             _ => $"qm guest exec {vmid} -- bash -lc {Quote(inner + " 2>&1")}",
         };
     }
+
+    /// <summary>
+    /// What a login shell prints before the first prompt (Ubuntu's welcome, Debian's notice). Commands here run
+    /// without a login shell, so the server never sends it by itself: read the files it is made of.
+    /// </summary>
+    // shortcut: no "Last login" line and nothing printed by profile scripts; open a real shell (CreateShellStream) once if that is missed.
+    public const string Greeting = "cat /run/motd.dynamic /etc/motd 2>/dev/null";
+
+    /// <summary>Lists a folder for the file tree: one name per line, folders end with "/", links are followed.</summary>
+    public static string ListCommand(string path) => $"ls -1ApL -- {Quote(path)} 2>/dev/null";
+
+    /// <summary>Folders first, then files, each by name.</summary>
+    public static IReadOnlyList<(string Name, bool IsFolder)> ParseList(string output) => output
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(line => (Name: line.TrimEnd('/'), IsFolder: line.EndsWith('/')))
+        .Where(e => e.Name.Length > 0)
+        .OrderBy(e => !e.IsFolder).ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
     /// <summary>qm guest exec answers with JSON; anything else is qm's own error (e.g. no guest agent).</summary>
     public static (string Output, int ExitCode) ParseGuestExec(string text, int exitCode)
@@ -72,12 +107,13 @@ public sealed class SshTerminal : ITerminal
 {
     readonly SshClient _ssh;
     readonly string _user, _label;
+    readonly string? _password; // for sudo, which can't ask without a real terminal
     readonly TerminalTarget _target;
     readonly int _vmid;
     string _cwd = "~";
 
-    SshTerminal(SshClient ssh, string user, string label, TerminalTarget target, int vmid) =>
-        (_ssh, _user, _label, _target, _vmid) = (ssh, user, label, target, vmid);
+    SshTerminal(SshClient ssh, string user, string? password, string label, TerminalTarget target, int vmid) =>
+        (_ssh, _user, _password, _label, _target, _vmid) = (ssh, user, password, label, target, vmid);
 
     public string Prompt => $"{_user}@{_label}:{_cwd}{(_user == "root" ? "#" : "$")}";
 
@@ -107,7 +143,7 @@ public sealed class SshTerminal : ITerminal
         try
         {
             await client.ConnectAsync(ct);
-            return new(new SshTerminal(client, user, label, target, vmid));
+            return new(new SshTerminal(client, user, password, label, target, vmid));
         }
         catch (Exception e)
         {
@@ -122,8 +158,18 @@ public sealed class SshTerminal : ITerminal
     {
         var sw = Stopwatch.StartNew();
         var isCd = Shell.IsCd(command);
-        using var cmd = _ssh.CreateCommand(Shell.Compose(isCd ? command + " && pwd" : command, _cwd, _target, _vmid));
-        await cmd.ExecuteAsync(ct);
+        var root = _user == "root";
+        var sudo = !root && _target == TerminalTarget.Node && !string.IsNullOrEmpty(_password) && Shell.UsesSudo(command);
+        // Inside a guest pct/qm make everyone root (and need root on the node themselves).
+        using var cmd = _ssh.CreateCommand(Shell.Compose(isCd ? command + " && pwd" : command, _cwd, _target, _vmid,
+            root || _target != TerminalTarget.Node, sudo));
+        var run = cmd.ExecuteAsync(ct);
+        if (sudo)
+        {
+            using var stdin = cmd.CreateInputStream();
+            stdin.Write(Encoding.UTF8.GetBytes(_password + "\n"));
+        }
+        await run;
         var output = cmd.Result;
         var code = cmd.ExitStatus ?? -1;
         if (_target == TerminalTarget.Vm) (output, code) = Shell.ParseGuestExec(output, code);
@@ -142,6 +188,21 @@ public sealed class SshTerminal : ITerminal
 /// <summary>Pretend shell for the demo cluster, answers a handful of common admin commands.</summary>
 public sealed class DemoTerminal(string host) : ITerminal
 {
+    // What the folder tree shows in the demo; folders missing here are empty.
+    static readonly Dictionary<string, string> Folders = new()
+    {
+        ["/"] = "bin/\nboot/\netc/\nhome/\nroot/\ntmp/\nusr/\nvar/",
+        ["/etc"] = "network/\npve/\nfstab\nhostname\nhosts",
+        ["/etc/network"] = "interfaces",
+        ["/etc/pve"] = "lxc/\nnodes/\nqemu-server/\nstorage.cfg\nuser.cfg",
+        ["/root"] = "backup/\nscripts/\nnotes.txt",
+        ["/root/scripts"] = "backup.sh\nupdate.sh",
+        ["/var"] = "lib/\nlog/",
+        ["/var/lib"] = "vz/",
+        ["/var/lib/vz"] = "dump/\nimages/\ntemplate/",
+        ["/var/log"] = "pve/\nauth.log\nsyslog",
+    };
+
     string _cwd = "~";
 
     public string Prompt => $"root@{host}:{_cwd}#";
@@ -159,7 +220,9 @@ public sealed class DemoTerminal(string host) : ITerminal
             "whoami" => ("root", 0),
             "hostname" => (host, 0),
             "echo" => (arg, 0),
+            "ls" when arg.StartsWith("-1ApL -- '") => (Folders.GetValueOrDefault(arg.Split('\'')[1], ""), 0),
             "ls" => ("backup  scripts  notes.txt", 0),
+            "cat" when command == Shell.Greeting => ($"Linux {host} 6.8.12-10-pve #1 SMP PREEMPT_DYNAMIC PMX 6.8.12-10 x86_64\n\nThe programs included with the Debian GNU/Linux system are free software;\nthe exact distribution terms for each program are described in the\nindividual files in /usr/share/doc/*/copyright.", 0),
             "uptime" => ($" {DateTime.Now:HH:mm:ss} up 79 days,  3:12,  1 user,  load average: 0.42, 0.37, 0.35", 0),
             "df" => ("""
                 Filesystem            Size  Used Avail Use% Mounted on

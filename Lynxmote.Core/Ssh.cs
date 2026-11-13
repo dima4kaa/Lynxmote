@@ -167,14 +167,18 @@ public sealed class SshProbe<T>(ServerConfig cfg, string what, string command, F
 }
 
 /// <summary>What a Linux VM without qemu-guest-agent reports over SSH.</summary>
-public sealed record GuestReading(long DiskUsed, long DiskTotal, string? Ips);
+public sealed record GuestReading(long DiskUsed, long DiskTotal, string? Ips, long MemUsed = 0, long MemTotal = 0);
 
 public static class GuestProbe
 {
-    /// <summary>Real disks only (no tmpfs, no snap loops) and the addresses of real network cards.</summary>
+    /// <summary>
+    /// Real disks only (no tmpfs, no snap loops), the addresses of real network cards and the memory programs really
+    /// hold: from outside, Proxmox counts the guest's file cache as used, so a mostly idle VM looks almost full.
+    /// </summary>
     public static readonly string Command = """
         df -Pk 2>/dev/null | awk 'NR>1 && $1 ~ "^/dev/" && $1 !~ "^/dev/loop" {print "D|"$1"|"$2"|"$3}'
         ip -4 -o addr show scope global 2>/dev/null | awk '$2 !~ "^(docker|br-|veth|virbr)" {print "I|"$4}'
+        awk '$1 == "MemTotal:" {t=$2} $1 == "MemAvailable:" {a=$2} END {if (t && a) print "M|"t"|"a}' /proc/meminfo 2>/dev/null
         """.ReplaceLineEndings("\n"); // a CRLF checkout must not send \r to the shell
 
     /// <summary>Sum over the filesystems; a device mounted twice (bind mounts) counts once.</summary>
@@ -182,15 +186,17 @@ public static class GuestProbe
     {
         var seen = new HashSet<string>();
         var ips = new List<string>();
-        long used = 0, total = 0;
+        long used = 0, total = 0, memUsed = 0, memTotal = 0;
         foreach (var line in output.Split('\n', StringSplitOptions.TrimEntries))
         {
             var p = line.Split('|');
-            if (p is ["D", var device, var totalKb, var usedKb] && long.TryParse(totalKb, out var t) && long.TryParse(usedKb, out var u) && seen.Add(device))
+            if (p is ["M", var allKb, var freeKb] && long.TryParse(allKb, out var all) && long.TryParse(freeKb, out var free))
+                (memTotal, memUsed) = (all * 1024, (all - free) * 1024);
+            else if (p is ["D", var device, var totalKb, var usedKb] && long.TryParse(totalKb, out var t) && long.TryParse(usedKb, out var u) && seen.Add(device))
                 (total, used) = (total + t * 1024, used + u * 1024);
             else if (p is ["I", var address] && address.Split('/')[0] is { Length: > 0 } ip && !ips.Contains(ip))
                 ips.Add(ip);
         }
-        return new(used, total, ips.Count > 0 ? string.Join(", ", ips) : null);
+        return new(used, total, ips.Count > 0 ? string.Join(", ", ips) : null, memUsed, memTotal);
     }
 }

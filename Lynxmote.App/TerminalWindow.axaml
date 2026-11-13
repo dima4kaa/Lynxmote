@@ -44,6 +44,8 @@
     <Border x:Name="TitleBar" DockPanel.Dock="Top" Background="#14171D" BorderBrush="#232832" BorderThickness="0,0,0,1" Height="40">
       <DockPanel Margin="16,0,150,0">
         <Button DockPanel.Dock="Right" Classes="chip" Content="{app:T 'Очистить  Ctrl+L'}" Click="Clear_Click" />
+        <Button x:Name="UserButton" DockPanel.Dock="Right" Classes="chip" Margin="0,0,6,0" IsVisible="False"
+                Content="{app:T 'Сменить пользователя'}" Click="ChangeUser_Click" />
         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
           <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#F59E0B" />
           <TextBlock x:Name="TargetText" FontWeight="SemiBold" Foreground="#E6E8EC" />
@@ -86,7 +88,8 @@
             <DataTemplate x:DataType="app:TerminalBlock">
               <Border Classes="block">
                 <StackPanel Spacing="6">
-                  <DockPanel>
+                  <!-- The server's greeting is a card without a command -->
+                  <DockPanel IsVisible="{Binding Command, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
                     <TextBlock DockPanel.Dock="Right" FontSize="11" VerticalAlignment="Center" Text="{Binding Footer}"
                                Foreground="{Binding Failed, Converter={x:Static app:TerminalBlock.FooterBrush}}" />
                     <TextBlock Classes="mono" Foreground="#91A7FF" TextWrapping="Wrap">

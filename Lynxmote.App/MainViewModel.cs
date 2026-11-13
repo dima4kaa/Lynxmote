@@ -441,6 +441,7 @@ public partial class MainViewModel : ObservableObject
             try
             {
                 Push(new AlertEvent(DateTime.Now, Severity.Info, r.Name, await source.ApplyAsync(r.LocalId, action, default), r.Key));
+                r.Expect(action);
             }
             catch (Exception e)
             {

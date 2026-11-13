@@ -133,10 +133,11 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             // Without the agent a Linux VM is asked over SSH directly, once the user has saved a login for it.
             var guest = disk is { NoAgent: true, Windows: false } && running ? GuestOf(id) : null;
             if (guest?.Reading is { DiskTotal: > 0 } g) (disk!.Used, disk.Total) = (g.DiskUsed, g.DiskTotal);
+            var (mem, maxMem) = guest?.Reading is { MemTotal: > 0 } m ? (m.MemUsed, m.MemTotal) : ((long)Num(r, "mem"), (long)Num(r, "maxmem"));
             list.Add(new ResourceSnapshot(
                 id, k == ResourceKind.Node ? node : $"{Num(r, "vmid")} · {Str(r, "name")}", k, node,
                 running, Num(r, "cpu"),
-                (long)Num(r, "mem"), (long)Num(r, "maxmem"),
+                mem, maxMem,
                 disk?.Used ?? (long)Num(r, "disk"), disk?.Total ?? (long)Num(r, "maxdisk"),
                 reading?.TempC, netIn, netOut, reading?.Connections, TimeSpan.FromSeconds(Num(r, "uptime")),
                 sensors is not null ? sensors.Note ?? (reading is { TempC: null } ? L.T("нет датчика") : null)

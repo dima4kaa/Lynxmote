@@ -496,6 +496,7 @@
                         <Button Classes="inspector" Content="{app:T 'Остановить…'}" IsVisible="{Binding CanStop}" Click="InspectorStop_Click" />
                         <Button Classes="inspector" Content="{app:T 'Создать снапшот'}" IsVisible="{Binding IsGuest}" Click="InspectorSnapshot_Click" />
                         <Button Classes="inspector" Content="{app:T 'Терминал'}" Click="InspectorTerminal_Click" />
+                        <Button Classes="inspector" Content="{app:T 'Файлы'}" Click="InspectorFiles_Click" />
                         <Button Classes="inspector" Content="{app:T 'Добавить виджет'}" Click="InspectorWidget_Click" />
                         <Button Classes="inspector" Content="{app:T 'Свойства'}" Click="InspectorProperties_Click" />
                       </StackPanel>

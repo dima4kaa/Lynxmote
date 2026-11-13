@@ -9,12 +9,47 @@ public class TerminalTests
         Assert.Equal(@"'echo '\''hi'\'''", Shell.Quote("echo 'hi'"));
 
     [Fact]
-    public void Node_command_keeps_folder_and_merges_stderr() =>
-        Assert.Equal("{ cd '/var/log' && ls\n} 2>&1", Shell.Compose("ls", "/var/log", TerminalTarget.Node, 0));
+    public void Node_command_keeps_folder_merges_stderr_and_closes_stdin() =>
+        Assert.Equal("{ cd '/var/log' && ls\n} </dev/null 2>&1", Shell.Compose("ls", "/var/log", TerminalTarget.Node, 0));
 
     [Fact]
     public void Container_command_goes_through_pct_exec() =>
-        Assert.Equal(@"pct exec 101 -- bash -lc 'df -h 2>&1'", Shell.Compose("df -h", "~", TerminalTarget.Container, 101));
+        Assert.Equal(@"pct exec 101 -- bash -lc 'df -h 2>&1' </dev/null", Shell.Compose("df -h", "~", TerminalTarget.Container, 101));
+
+    [Fact]
+    public void Root_gets_a_stand_in_for_a_missing_sudo() =>
+        Assert.Equal("{ command -v sudo >/dev/null || sudo() { \"$@\"; }; sudo apt update\n} </dev/null 2>&1",
+            Shell.Compose("sudo apt update", "~", TerminalTarget.Node, 0));
+
+    [Fact]
+    public void Plain_user_gets_sbin_and_sudo_reads_the_password_once() =>
+        Assert.Equal("{ sudo -S -p '' -v && { PATH=\"$PATH:/usr/local/sbin:/usr/sbin:/sbin\"; sudo fdisk -l\n} </dev/null; } 2>&1",
+            Shell.Compose("sudo fdisk -l", "~", TerminalTarget.Node, 0, root: false, sudoPassword: true));
+
+    [Theory]
+    [InlineData("nano /etc/hosts", "nano")]
+    [InlineData("sudo vim x", "vim")]
+    [InlineData("top -bn1", null)]
+    [InlineData("vigr", null)]
+    [InlineData("cat nano", null)]
+    public void Full_screen_programs_are_recognized(string command, string? program) =>
+        Assert.Equal(program, Shell.FullScreen(command));
+
+    [Fact]
+    public void Folder_listing_puts_folders_first()
+    {
+        Assert.Equal("ls -1ApL -- '/var/my dir' 2>/dev/null", Shell.ListCommand("/var/my dir"));
+        Assert.Equal([("etc", true), ("Var", true), ("a.txt", false), ("b", false)], Shell.ParseList("b\nVar/\r\na.txt\netc/\n\n"));
+    }
+
+    [Fact]
+    public async Task Demo_terminal_lists_folders_for_the_tree()
+    {
+        using var t = new DemoTerminal("pve-01");
+        var list = Shell.ParseList((await t.RunAsync(Shell.ListCommand("/root"), default)).Output);
+        Assert.Equal([("backup", true), ("scripts", true), ("notes.txt", false)], list);
+        Assert.Empty(Shell.ParseList((await t.RunAsync(Shell.ListCommand("/nowhere"), default)).Output));
+    }
 
     [Fact]
     public void Vm_command_goes_through_guest_agent() =>
@@ -56,5 +91,6 @@ public class TerminalTests
         Assert.Equal("root@pve-01:/var/log#", t.Prompt);
         Assert.Equal("/var/log", (await t.RunAsync("pwd", default)).Output);
         Assert.Equal(127, (await t.RunAsync("nano", default)).ExitCode);
+        Assert.StartsWith("Linux pve-01 ", (await t.RunAsync(Shell.Greeting, default)).Output);
     }
 }

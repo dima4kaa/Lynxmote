@@ -58,6 +58,33 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     [ObservableProperty] private double[] _netOutHistory = [];
     [ObservableProperty] private double _netScale = 1;
 
+    PowerAction? _pending;
+    DateTime _pendingUntil;
+    TimeSpan _uptimeBefore;
+
+    /// <summary>
+    /// The server accepted a power command: say so until it reports the new state. Proxmox refreshes its figures
+    /// about every 10 s, so without this the row looks as if nothing happened.
+    /// </summary>
+    // shortcut: only commands sent from this app, a start from the Proxmox web page shows up when done; read /cluster/tasks if that matters.
+    public void Expect(PowerAction action)
+    {
+        if (action == PowerAction.Snapshot) return;
+        (_pending, _pendingUntil, _uptimeBefore) = (action, DateTime.UtcNow.AddMinutes(2), Uptime);
+        ShowPending();
+    }
+
+    void ShowPending()
+    {
+        StatusText = L.T(_pending switch
+        {
+            PowerAction.Start => "Запускается…",
+            PowerAction.Stop => "Останавливается…",
+            _ => "Перезагружается…",
+        });
+        CanStart = CanStop = false;
+    }
+
     public void Update(ResourceSnapshot s, Thresholds t)
     {
         Name = s.Name;
@@ -100,6 +127,16 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         NetInHistory = Append(NetInHistory, s.NetIn);
         NetOutHistory = Append(NetOutHistory, s.NetOut);
         NetScale = Math.Max(1, Math.Max(NetInHistory.Max(), NetOutHistory.Max()));
+
+        var done = _pending switch
+        {
+            null => true,
+            PowerAction.Start => s.Running,
+            PowerAction.Stop => !s.Running,
+            _ => s.Uptime < _uptimeBefore, // a reboot shows only as the uptime starting over
+        };
+        if (done || DateTime.UtcNow > _pendingUntil) _pending = null;
+        else ShowPending();
     }
 
     /// <summary>Source stopped answering: keep the last values but show them as outdated.</summary>

@@ -15,6 +15,7 @@ public sealed class DemoSource : IResourceSource
         public double Cpu, Mem, Disk, Net, Temp;
         public int Conn;
         public int Hot; // ticks left of an incident: CPU spike for guests, overheat for nodes
+        public int Flip; // ticks left until a start or stop command takes effect, as on a real server
         public TimeSpan Uptime;
     }
 
@@ -95,11 +96,11 @@ public sealed class DemoSource : IResourceSource
         {
             case PowerAction.Start:
                 if (item.Running) return L.T("Уже запущен");
-                Start(item);
+                item.Flip = 5;
                 return L.T("Отправлена команда запуска");
             case PowerAction.Stop:
                 if (!item.Running) return L.T("Уже остановлен");
-                item.Running = false;
+                item.Flip = 5;
                 return L.T("Отправлена команда остановки");
             case PowerAction.Reboot:
                 if (!item.Running) return L.T("Не запущен");
@@ -136,6 +137,11 @@ public sealed class DemoSource : IResourceSource
 
     void StepGuest(Item g, TimeSpan elapsed)
     {
+        if (g.Flip > 0 && --g.Flip == 0)
+        {
+            if (g.Running) g.Running = false;
+            else Start(g);
+        }
         if (!g.Running)
         {
             g.Cpu = g.Mem = g.Net = 0;

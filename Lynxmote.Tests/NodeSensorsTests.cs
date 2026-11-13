@@ -68,10 +68,20 @@ public class NodeSensorsTests
     }
 
     [Fact]
+    public void Guest_memory_is_what_programs_hold_not_the_file_cache()
+    {
+        // MemTotal and MemAvailable of /proc/meminfo, in KiB: 8 GiB, 6 GiB still available.
+        var r = GuestProbe.Parse("M|8388608|6291456\n");
+        Assert.Equal(8L << 30, r.MemTotal);
+        Assert.Equal(2L << 30, r.MemUsed);
+    }
+
+    [Fact]
     public void Guest_without_df_output_has_no_disk_and_no_address()
     {
         var r = GuestProbe.Parse("");
         Assert.Equal(0, r.DiskTotal);
+        Assert.Equal(0, r.MemTotal);
         Assert.Null(r.Ips);
     }
 }

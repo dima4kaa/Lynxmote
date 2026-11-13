@@ -1,0 +1,33 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:Lynxmote.App"
+        x:Class="Lynxmote.App.FilesWindow"
+        Icon="/Assets/app.ico"
+        Width="520" Height="680" MinWidth="360" MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Bg}">
+
+  <DockPanel Margin="{Binding $parent[Window].OffScreenMargin}">
+    <Border x:Name="TitleBar" DockPanel.Dock="Top" Height="40" Background="Transparent">
+      <StackPanel Orientation="Horizontal" Spacing="8" Margin="16,0" VerticalAlignment="Center">
+        <Image Source="/Assets/app.ico" Width="16" Height="16" />
+        <TextBlock x:Name="TitleText" Classes="muted" FontSize="12" VerticalAlignment="Center" />
+      </StackPanel>
+    </Border>
+    <TextBlock x:Name="StatusText" DockPanel.Dock="Top" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="24,4,24,8" />
+
+    <!-- Read-only: folders open on the arrow or a double click, nothing can be changed from here. -->
+    <TreeView x:Name="Tree" Margin="12,0,12,12">
+      <TreeView.Styles>
+        <Style Selector="TreeViewItem" x:DataType="app:FileNode">
+          <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+        </Style>
+      </TreeView.Styles>
+      <TreeView.ItemTemplate>
+        <TreeDataTemplate x:DataType="app:FileNode" ItemsSource="{Binding Children}">
+          <TextBlock Text="{Binding Name}" FontWeight="{Binding Weight}" Opacity="{Binding Opacity}" />
+        </TreeDataTemplate>
+      </TreeView.ItemTemplate>
+    </TreeView>
+  </DockPanel>
+</Window>

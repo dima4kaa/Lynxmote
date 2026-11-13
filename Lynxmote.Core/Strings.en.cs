@@ -259,5 +259,16 @@ public static partial class L
         ["В VM нет qemu-guest-agent: откройте её «Терминал» один раз и войдите в неё по SSH"] = "The VM has no qemu-guest-agent: open its Terminal once and log in to it over SSH",
         ["В этой VM нет qemu-guest-agent, поэтому терминал подключается по SSH прямо к ней. Введите её адрес и логин."] = "This VM has no qemu-guest-agent, so the terminal connects over SSH straight to it. Enter its address and login.",
         ["Адрес VM, например 192.168.1.50"] = "VM address, for example 192.168.1.50",
+        ["Запускается…"] = "Starting…",
+        ["Останавливается…"] = "Stopping…",
+        ["Перезагружается…"] = "Rebooting…",
+        ["Сменить пользователя"] = "Change user",
+        ["{0} рисует на весь экран, а этот терминал выполняет команды по одной и показывает их вывод. Файл можно посмотреть командой cat, процессы — top -bn1."] = "{0} draws on the whole screen, while this terminal runs one command at a time and shows its output. Use cat to look at a file and top -bn1 for processes.",
+        ["не запущено"] = "not run",
+        ["Файлы"] = "Files",
+        ["Файлы: {0}"] = "Files: {0}",
+        ["Только просмотр: содержимое папки читается, когда вы её раскрываете."] = "View only: a folder is read when you open it.",
+        ["нет доступа"] = "no access",
+        ["пусто"] = "empty",
     };
 }

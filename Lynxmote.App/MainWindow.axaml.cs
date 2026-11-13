@@ -178,6 +178,7 @@ public partial class MainWindow : Window
             {
                 Item(L.T(node.IsFilterActive ? "Показать все VM" : "Показать только VM этой ноды"), () => Vm.ToggleNodeFilter(node)),
                 Item(L.T("Терминал"), () => OpenTerminal(node)),
+                Item(L.T("Файлы"), () => OpenFiles(node)),
                 Item(L.T("Вход по SSH…"), () => OpenLogin(node)),
                 Item(L.T("Добавить виджет"), () => Vm.AddWidget(node)),
                 new Separator(),
@@ -210,7 +211,14 @@ public partial class MainWindow : Window
         if (Inspected is { } row) OpenProperties(row);
     }
 
+    void InspectorFiles_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Inspected is { } row) OpenFiles(row);
+    }
+
     void OpenTerminal(ResourceRow row) => new TerminalWindow(row, Vm).Show(this);
+
+    void OpenFiles(ResourceRow row) => new FilesWindow(row, Vm).Show(this);
 
     // ---- SSH login without the terminal ----
 
@@ -243,8 +251,8 @@ public partial class MainWindow : Window
         }
 
         // Power actions only make sense for guests, and only the ones that change their state.
-        StartItem.IsVisible = Guests(running: false).Count > 0;
-        StopItem.IsVisible = RebootItem.IsVisible = Guests(running: true).Count > 0;
+        StartItem.IsVisible = rows.Any(r => r.CanStart);
+        StopItem.IsVisible = RebootItem.IsVisible = rows.Any(r => r.CanStop);
         SnapshotItem.IsVisible = PowerSeparator.IsVisible = rows.Any(r => !r.IsNode);
         LoginItem.IsVisible = rows.Count == 1 && CanLogin(rows[0]);
 
@@ -279,8 +287,6 @@ public partial class MainWindow : Window
         foreach (var row in SelectedRows) Vm.AddWidget(row);
     }
 
-    List<ResourceRow> Guests(bool running) => SelectedRows.Where(r => !r.IsNode && r.Running == running).ToList();
-
     async void Start_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Start, SelectedRows);
     async void Snapshot_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Snapshot, SelectedRows);
     async void Stop_Click(object? sender, RoutedEventArgs e) => await Act(PowerAction.Stop, SelectedRows);
@@ -293,9 +299,9 @@ public partial class MainWindow : Window
     {
         var rows = selection.Where(r => !r.IsNode && action switch
         {
-            PowerAction.Start => !r.Running,
+            PowerAction.Start => r.CanStart, // false while an earlier command is still in progress
             PowerAction.Snapshot => true,
-            _ => r.Running,
+            _ => r.CanStop,
         }).ToList();
         if (rows.Count == 0) return;
         if (action is PowerAction.Stop or PowerAction.Reboot)

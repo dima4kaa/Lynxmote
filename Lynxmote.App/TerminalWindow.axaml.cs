@@ -84,6 +84,7 @@ public partial class TerminalWindow : Window
         if (_vm!.SourceOf(_row!) is DemoSource)
         {
             Connected(new DemoTerminal(LabelOf(_row!)), L.T("демо-режим"));
+            _ = GreetAsync(_terminal!);
             return;
         }
         if (_vm.SourceOf(_row!) is not ProxmoxSource source || _vm.ConfigOf(_row!) is not { } cfg)
@@ -176,7 +177,8 @@ public partial class TerminalWindow : Window
                 return;
             }
             Connected(terminal, $"ssh {user}@{_host}");
-            if (failed is not null)
+            if (failed is null) _ = GreetAsync(terminal);
+            else
             {
                 _blocks.Add(new TerminalBlock(Shell.Compose("true", "~", target, vmid))
                 {
@@ -221,8 +223,40 @@ public partial class TerminalWindow : Window
         StatusDot.Fill = new SolidColorBrush(Color.Parse("#4ADE80"));
         StatusText.Text = status;
         PromptText.Text = terminal.Prompt;
+        UserButton.IsVisible = terminal is SshTerminal;
         Input.IsEnabled = true;
         Input.Focus();
+    }
+
+    /// <summary>The server's welcome text as the first card of the session, without a command line.</summary>
+    async Task GreetAsync(ITerminal terminal)
+    {
+        var at = _blocks.Count; // below what an earlier login in this window left
+        try
+        {
+            var r = await terminal.RunAsync(Shell.Greeting, default);
+            // cat answers 1 when one of the files is missing; anything else is pct or qm failing, not a greeting.
+            if (r.ExitCode is 0 or 1 && r.Output.Trim() is { Length: > 0 } text)
+                _blocks.Insert(Math.Min(at, _blocks.Count), new TerminalBlock("") { Output = text, Footer = "" });
+        }
+        catch (Exception)
+        {
+            // No greeting is not worth a message: the first real command reports a broken connection.
+        }
+    }
+
+    /// <summary>Back to the login form to connect as someone else; a login that works replaces the saved one.</summary>
+    void ChangeUser_Click(object? sender, RoutedEventArgs e)
+    {
+        _running?.Cancel();
+        _terminal?.Dispose();
+        _terminal = null;
+        Input.IsEnabled = UserButton.IsVisible = false;
+        PromptText.Text = PasswordBox.Text = LoginError.Text = "";
+        StatusDot.Fill = new SolidColorBrush(Color.Parse("#F59E0B"));
+        ShowLogin();
+        UserBox.Focus();
+        UserBox.SelectAll();
     }
 
     async void Login_Click(object? sender, RoutedEventArgs e)
@@ -248,10 +282,18 @@ public partial class TerminalWindow : Window
         }
         if (_history.LastOrDefault() != command) _history.Add(command);
         _historyPos = _history.Count;
+        if (command == "top") command = "top -bn1"; // the one-shot form: there is no screen to redraw here
 
         var block = new TerminalBlock(command);
         _blocks.Add(block);
         Input.Text = "";
+        if (Shell.FullScreen(command) is { } program)
+        {
+            block.Output = L.F("{0} рисует на весь экран, а этот терминал выполняет команды по одной и показывает их вывод. Файл можно посмотреть командой cat, процессы — top -bn1.", program);
+            (block.Footer, block.Failed) = (L.T("не запущено"), true);
+            ScrollDown();
+            return;
+        }
         StopButton.IsVisible = true;
         _running = new CancellationTokenSource();
         ScrollDown();
@@ -275,7 +317,7 @@ public partial class TerminalWindow : Window
             _running.Dispose();
             _running = null;
             StopButton.IsVisible = false;
-            PromptText.Text = _terminal.Prompt;
+            PromptText.Text = _terminal?.Prompt; // null: the user went to log in as someone else meanwhile
             Input.Focus();
             ScrollDown();
         }

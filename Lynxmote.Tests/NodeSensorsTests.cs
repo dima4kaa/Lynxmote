@@ -43,8 +43,35 @@ public class NodeSensorsTests
     }
 
     [Fact]
-    public void Command_has_no_carriage_returns()
+    public void Commands_have_no_carriage_returns()
     {
         Assert.DoesNotContain('\r', NodeSensors.Command);
+        Assert.DoesNotContain('\r', GuestProbe.Command);
+    }
+
+    [Fact]
+    public void Neighbours_map_a_network_card_to_its_address()
+    {
+        var r = NodeSensors.Parse("C|1\nA|10.0.0.31|BC:24:11:aa:bb:cc\nA|10.0.0.1|00:11:22:33:44:55\n");
+        Assert.Equal("10.0.0.31", r.Neighbors["bc:24:11:aa:bb:cc"]);
+        Assert.Equal(2, r.Neighbors.Count);
+    }
+
+    [Fact]
+    public void Guest_disk_counts_each_device_once_and_lists_addresses()
+    {
+        // What the guest command prints: sda1 is mounted twice (a bind mount), sizes are in KiB.
+        var r = GuestProbe.Parse("D|/dev/sda1|20000000|5000000\r\nD|/dev/sda1|20000000|5000000\nD|/dev/sda15|100000|10000\nI|10.0.0.31/24\nI|10.0.0.31/24\nI|192.168.5.2/24\n");
+        Assert.Equal(20_100_000L * 1024, r.DiskTotal);
+        Assert.Equal(5_010_000L * 1024, r.DiskUsed);
+        Assert.Equal("10.0.0.31, 192.168.5.2", r.Ips);
+    }
+
+    [Fact]
+    public void Guest_without_df_output_has_no_disk_and_no_address()
+    {
+        var r = GuestProbe.Parse("");
+        Assert.Equal(0, r.DiskTotal);
+        Assert.Null(r.Ips);
     }
 }

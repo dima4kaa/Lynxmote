@@ -3,6 +3,7 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Lynxmote.Core;
 
@@ -17,7 +18,8 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     readonly ServerConfig _cfg;
     readonly Dictionary<string, (long In, long Out, DateTime At, long RateIn, long RateOut)> _counters = [];
     readonly Dictionary<string, string> _nodeOf = [];
-    readonly Dictionary<string, NodeSensors> _sensors = [];
+    readonly Dictionary<string, SshProbe<NodeReading>> _sensors = [];
+    readonly Dictionary<string, SshProbe<GuestReading>> _guests = [];
     readonly Dictionary<string, GuestDisk> _disks = [];
     string? _seenCert, _shape;
 
@@ -128,13 +130,18 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
                 : (0, 0);
             // Proxmox always reports disk 0 for a VM: only qemu-guest-agent knows how full its filesystems are.
             var disk = k == ResourceKind.Vm ? DiskOf(id, node, running) : null;
+            // Without the agent a Linux VM is asked over SSH directly, once the user has saved a login for it.
+            var guest = disk is { NoAgent: true, Windows: false } && running ? GuestOf(id) : null;
+            if (guest?.Reading is { DiskTotal: > 0 } g) (disk!.Used, disk.Total) = (g.DiskUsed, g.DiskTotal);
             list.Add(new ResourceSnapshot(
                 id, k == ResourceKind.Node ? node : $"{Num(r, "vmid")} · {Str(r, "name")}", k, node,
                 running, Num(r, "cpu"),
                 (long)Num(r, "mem"), (long)Num(r, "maxmem"),
                 disk?.Used ?? (long)Num(r, "disk"), disk?.Total ?? (long)Num(r, "maxdisk"),
                 reading?.TempC, netIn, netOut, reading?.Connections, TimeSpan.FromSeconds(Num(r, "uptime")),
-                sensors?.Note ?? disk?.Note));
+                sensors is not null ? sensors.Note ?? (reading is { TempC: null } ? L.T("нет датчика") : null)
+                : guest is not null ? guest.Note : disk?.Note,
+                sensors?.NeedsLogin ?? guest?.NeedsLogin ?? false));
         }
         return list;
     }
@@ -145,6 +152,8 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         public string? Note;
         public DateTime Next;
         public bool Busy;
+        public bool NoAgent, Windows; // what to do instead of asking the agent
+        public string[] Macs = [];
     }
 
     GuestDisk DiskOf(string id, string node, bool running)
@@ -165,6 +174,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             using var doc = await GetAsync($"nodes/{Uri.EscapeDataString(node)}/{id}/agent/get-fsinfo", default);
             (d.Used, d.Total) = GuestFsUsage(doc.RootElement.GetProperty("data").GetProperty("result"));
             d.Note = null;
+            d.NoAgent = false;
             d.Next = DateTime.UtcNow.AddSeconds(30);
         }
         catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
@@ -173,11 +183,63 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
             if (d.Note is null) Log.Write(Title, $"disk of {id} from the guest agent: {e.Message}");
             d.Note = L.T("нужен qemu-guest-agent");
             d.Next = DateTime.UtcNow.AddMinutes(1); // the user may install the agent meanwhile
+            if (!d.NoAgent) await ReadConfigAsync(d, id, node);
+            d.NoAgent = true;
         }
         finally
         {
             d.Busy = false;
         }
+    }
+
+    /// <summary>What Proxmox itself knows about a VM without the agent: its OS family and network cards.</summary>
+    async Task ReadConfigAsync(GuestDisk d, string id, string node)
+    {
+        try
+        {
+            using var doc = await GetAsync($"nodes/{Uri.EscapeDataString(node)}/{id}/config", default);
+            var config = doc.RootElement.GetProperty("data");
+            d.Windows = Str(config, "ostype").StartsWith('w'); // win10, win11, w2k19…: no df there, only the agent helps
+            d.Macs = MacsOf(config);
+        }
+        catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
+                                      or JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            Log.Write(Title, $"config of {id}: {e.Message}");
+        }
+    }
+
+    /// <summary>MAC addresses from net0, net1…, e.g. "virtio=BC:24:11:AA:BB:CC,bridge=vmbr0".</summary>
+    public static string[] MacsOf(JsonElement config) => config.EnumerateObject()
+        .Where(p => p.Name.StartsWith("net") && p.Value.ValueKind == JsonValueKind.String)
+        .Select(p => Regex.Match(p.Value.GetString()!, "[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}"))
+        .Where(m => m.Success)
+        .Select(m => m.Value.ToLowerInvariant())
+        .ToArray();
+
+    SshProbe<GuestReading> GuestOf(string id)
+    {
+        if (!_guests.TryGetValue(id, out var probe))
+            _guests[id] = probe = new(_cfg, id, GuestProbe.Command, GuestProbe.Parse, _ => Task.FromResult(
+                _cfg.GuestLogins.TryGetValue(id, out var g) ? new SshTarget(g.Host, g.User, Secrets.Unprotect(g.ProtectedPassword)) : null));
+        probe.Poll();
+        return probe;
+    }
+
+    /// <summary>
+    /// A VM's address as its node sees it: the neighbour entry of one of the VM's network cards.
+    /// Null when the node has not talked to the VM lately or has no SSH login yet.
+    /// </summary>
+    public string? GuessAddress(string id) =>
+        _disks.TryGetValue(id, out var d) && _nodeOf.TryGetValue(id, out var node) && _sensors.TryGetValue(node, out var s) && s.Reading is { } r
+            ? d.Macs.Select(m => r.Neighbors.GetValueOrDefault(m)).FirstOrDefault(ip => ip is not null)
+            : null;
+
+    /// <summary>The user has just saved an SSH login for this node or VM: read it now instead of waiting.</summary>
+    public void Relogin(string id)
+    {
+        if (_guests.TryGetValue(id, out var guest)) guest.Retry();
+        if (id.StartsWith("node/")) foreach (var s in _sensors.Values) s.Retry(); // one login serves every node of a server
     }
 
     /// <summary>Sum over the guest's filesystems; a device mounted twice (bind mounts, snaps) counts once.</summary>
@@ -194,10 +256,12 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
         return (used, total);
     }
 
-    NodeSensors SensorsOf(string node)
+    SshProbe<NodeReading> SensorsOf(string node)
     {
         if (!_sensors.TryGetValue(node, out var sensors))
-            _sensors[node] = sensors = new NodeSensors(_cfg, ct => NodeAddressAsync(node, ct));
+            _sensors[node] = sensors = new(_cfg, node, NodeSensors.Command, NodeSensors.Parse, async ct => _cfg.SshUser is { } user
+                ? new SshTarget(await NodeAddressAsync(node, ct), user, Secrets.Unprotect(_cfg.ProtectedSshPassword))
+                : null);
         sensors.Poll();
         return sensors;
     }
@@ -256,21 +320,27 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
                     .Where(i => Str(i, "name") != "lo")
                     .Select(i => Str(i, "inet").Split('/')[0]));
             }
-            // VMs only report addresses through qemu-guest-agent.
+            // Proxmox learns a VM's addresses only from qemu-guest-agent.
             using var agent = await GetAsync(path + "/agent/network-get-interfaces", ct);
             return JoinIps(agent.RootElement.GetProperty("data").GetProperty("result").EnumerateArray()
                 .Where(i => Str(i, "name") != "lo" && i.TryGetProperty("ip-addresses", out _))
                 .SelectMany(i => i.GetProperty("ip-addresses").EnumerateArray())
                 .Where(a => Str(a, "ip-address-type") == "ipv4")
-                .Select(a => Str(a, "ip-address")));
+                .Select(a => Str(a, "ip-address"))) ?? GuestAddress(id);
         }
         catch (Exception e) when (e is ProxmoxException or HttpRequestException or TaskCanceledException
                                       or JsonException or KeyNotFoundException or InvalidOperationException)
         {
             Log.Write(Title, $"address of {id}: {e.Message}");
-            return null;
+            return id.StartsWith("qemu/") ? GuestAddress(id) : null;
         }
     }
+
+    /// <summary>Without the agent: what the VM said over SSH, else the address the user logs in to, else the node's guess.</summary>
+    string? GuestAddress(string id) =>
+        (_guests.TryGetValue(id, out var probe) ? probe.Reading?.Ips : null)
+        ?? (_cfg.GuestLogins.TryGetValue(id, out var login) ? login.Host : null)
+        ?? GuessAddress(id);
 
     static string? JoinIps(IEnumerable<string> ips)
     {
@@ -282,6 +352,7 @@ public sealed class ProxmoxSource : IResourceSource, IDisposable
     {
         _http.Dispose();
         foreach (var s in _sensors.Values) s.Dispose();
+        foreach (var g in _guests.Values) g.Dispose();
     }
 
     async Task<JsonDocument> GetAsync(string path, CancellationToken ct)

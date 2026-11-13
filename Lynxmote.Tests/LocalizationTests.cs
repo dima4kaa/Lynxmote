@@ -1,6 +1,9 @@
 using System.Text.RegularExpressions;
 using Lynxmote.Core;
 
+// The language is one switch for the whole process: a test that flips it must not run beside tests that read Russian texts.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace Lynxmote.Tests;
 
 /// <summary>Every Russian text in the app's sources has an English translation with the same placeholders.</summary>

@@ -21,7 +21,8 @@ public sealed record ResourceSnapshot(
     long NetOut,
     int? Connections, // needs SSH on real nodes
     TimeSpan Uptime,
-    string? Note = null); // why a real node's SSH figures or a VM's disk are missing, e.g. no saved SSH login
+    string? Note = null, // why a real node's SSH figures or a VM's disk are missing, e.g. no saved SSH login
+    bool NeedsLogin = false); // the note goes away once the user saves an SSH login for this machine
 
 /// <summary>Where snapshots come from: the demo cluster or a real Proxmox server.</summary>
 public interface IResourceSource

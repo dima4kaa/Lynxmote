@@ -81,15 +81,18 @@ public sealed class SshTerminal : ITerminal
 
     public string Prompt => $"{_user}@{_label}:{_cwd}{(_user == "root" ? "#" : "$")}";
 
+    /// <param name="password">Empty or null: only this Windows user's SSH key is tried.</param>
     /// <param name="pinnedHostKey">SHA-256 fingerprint the user confirmed for this host; null on first contact.</param>
     public static async Task<SshConnectResult> ConnectAsync(
-        string host, string user, string password, string? pinnedHostKey,
+        string host, string user, string? password, string? pinnedHostKey,
         string label, TerminalTarget target, int vmid, CancellationToken ct)
     {
         SshClient client;
         try
         {
-            client = new SshClient(host, user, password);
+            if (SshLogin.Info(host, user, password) is not { } info)
+                return new(null, Error: L.T("Введите пароль: SSH-ключа на этом компьютере нет"));
+            client = new SshClient(info);
         }
         catch (ArgumentException e) // empty address or user
         {

@@ -31,6 +31,7 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private bool _stale;
     [ObservableProperty] private bool _hasProblem;
+    [ObservableProperty] private bool _needsLogin; // SSH figures are missing until the user saves a login
     [ObservableProperty] private Health _health = Health.Unknown;
     [ObservableProperty] private string _section = "";
 
@@ -63,6 +64,7 @@ public partial class ResourceRow(string key, string sourceKey, string localId) :
         Node = s.Node;
         Running = s.Running;
         Stale = false;
+        NeedsLogin = s.NeedsLogin;
         IsNode = s.Kind == ResourceKind.Node;
         KindText = s.Kind switch { ResourceKind.Node => L.T("Нода"), ResourceKind.Vm => "VM", _ => "LXC" };
         StatusText = L.T(s.Running ? "Работает" : "Остановлен");

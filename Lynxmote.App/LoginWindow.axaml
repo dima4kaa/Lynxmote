@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:app="using:Lynxmote.App"
+        x:Class="Lynxmote.App.LoginWindow"
+        Title="{app:T 'Вход по SSH'}" Icon="/Assets/app.ico"
+        Width="420" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource Surface}">
+  <StackPanel Margin="24" Spacing="12">
+    <TextBlock Text="{app:T 'Вход по SSH'}" FontSize="18" FontWeight="SemiBold" />
+    <TextBlock x:Name="Hint" Classes="muted" FontSize="12" TextWrapping="Wrap" />
+
+    <TextBox x:Name="AddressBox" IsVisible="False" Watermark="{app:T 'Адрес VM, например 192.168.1.50'}" />
+    <TextBox x:Name="UserBox" Text="root" Watermark="{app:T 'Пользователь'}" />
+    <TextBox x:Name="PasswordBox" PasswordChar="•" Watermark="{app:T 'Пароль'}" />
+    <TextBlock Classes="muted" FontSize="11" TextWrapping="Wrap"
+               Text="{app:T 'Пароль хранится зашифрованным для вашей учётной записи Windows.'}" />
+
+    <Border x:Name="HostKeyPanel" IsVisible="False" Classes="card" Padding="12">
+      <StackPanel Spacing="8">
+        <TextBlock TextWrapping="Wrap" FontSize="12"
+                   Text="{app:T 'Первое подключение к этому серверу. Сверьте отпечаток ключа (на сервере: ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub):'}" />
+        <SelectableTextBlock x:Name="HostKeyText" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" />
+        <CheckBox x:Name="TrustBox" Content="{app:T 'Отпечаток совпадает, доверять'}" FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" Foreground="#EF4444" />
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button Content="{app:T 'Отмена'}" Click="Cancel_Click" Padding="16,6" IsCancel="True" />
+      <Button x:Name="ConnectButton" Classes="accent" Content="{app:T 'Подключиться'}" Click="Connect_Click" Padding="16,6" IsDefault="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

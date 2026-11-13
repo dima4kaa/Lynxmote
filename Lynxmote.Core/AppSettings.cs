@@ -14,11 +14,12 @@ public sealed class ServerConfig
     public string? ProtectedSecret { get; set; }
     public string? PinnedCert { get; set; } // SHA-256 of a self-signed cert the user confirmed
     public string? SshUser { get; set; }
-    public string? ProtectedSshPassword { get; set; }
+    public string? ProtectedSshPassword { get; set; } // null with SshUser set: login by SSH key
     public Dictionary<string, string> SshHostKeys { get; set; } = []; // host -> SHA-256 fingerprint the user confirmed
     public Dictionary<string, GuestLogin> GuestLogins { get; set; } = []; // "qemu/100" -> SSH straight into a VM without the agent
 }
 
+/// <param name="ProtectedPassword">Null when the VM lets this Windows user's SSH key in.</param>
 public sealed record GuestLogin(string Host, string User, string? ProtectedPassword);
 
 public static class WidgetKind
@@ -123,6 +124,9 @@ public static class Secrets
     public static string? Protect(string secret) => OperatingSystem.IsWindows()
         ? Convert.ToBase64String(ProtectedData.Protect(Encoding.UTF8.GetBytes(secret), null, DataProtectionScope.CurrentUser))
         : null;
+
+    /// <summary>An SSH password as typed; empty means the login works by key and nothing is stored.</summary>
+    public static string? ProtectPassword(string? password) => string.IsNullOrEmpty(password) ? null : Protect(password);
 
     public static string? Unprotect(string? data)
     {

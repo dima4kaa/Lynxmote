@@ -54,7 +54,7 @@ sealed class FakeProxmox : IAsyncDisposable
         """;
 
     /// <param name="agent">Whether VM 100 runs qemu-guest-agent; without it Proxmox answers 500.</param>
-    public static async Task<FakeProxmox> StartAsync(bool rights = true, bool agent = true)
+    public static async Task<FakeProxmox> StartAsync(bool rights = true, bool agent = true, string ostype = "l26")
     {
         using var key = RSA.Create(2048);
         var req = new CertificateRequest("CN=pve", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -80,12 +80,16 @@ sealed class FakeProxmox : IAsyncDisposable
         app.MapGet("/api2/json/nodes/pve/qemu/100/agent/get-fsinfo", () => agent
             ? Results.Text(FsInfo, "application/json")
             : Results.Problem("No QEMU guest agent configured", statusCode: 500));
+        app.MapGet("/api2/json/nodes/pve/qemu/100/config", () => Results.Text(
+            """{"data":{"ostype":"OS","net0":"virtio=BC:24:11:AA:BB:CC,bridge=vmbr0"}}""".Replace("OS", ostype), "application/json"));
+        app.MapGet("/api2/json/nodes/pve/qemu/100/agent/network-get-interfaces", () => agent
+            ? Results.Text(
+                """{"data":{"result":[{"name":"lo","ip-addresses":[{"ip-address":"127.0.0.1","ip-address-type":"ipv4"}]},{"name":"ens18","ip-addresses":[{"ip-address":"10.0.0.20","ip-address-type":"ipv4","prefix":24},{"ip-address":"fe80::1","ip-address-type":"ipv6"}]}]}}""", "application/json")
+            : Results.Problem("No QEMU guest agent configured", statusCode: 500));
         app.MapGet("/api2/json/cluster/status", () => Results.Text(
             """{"data":[{"type":"cluster","name":"lab"},{"type":"node","name":"pve","ip":"10.0.0.5","online":1}]}""", "application/json"));
         app.MapGet("/api2/json/nodes/pve/lxc/101/interfaces", () => Results.Text(
             """{"data":[{"name":"lo","inet":"127.0.0.1/8"},{"name":"eth0","inet":"10.0.0.21/24","hwaddr":"bc:24:11:00:00:01"}]}""", "application/json"));
-        app.MapGet("/api2/json/nodes/pve/qemu/100/agent/network-get-interfaces", () => Results.Text(
-            """{"data":{"result":[{"name":"lo","ip-addresses":[{"ip-address":"127.0.0.1","ip-address-type":"ipv4"}]},{"name":"ens18","ip-addresses":[{"ip-address":"10.0.0.20","ip-address-type":"ipv4","prefix":24},{"ip-address":"fe80::1","ip-address-type":"ipv6"}]}]}}""", "application/json"));
         app.MapPost("/api2/json/nodes/{node}/{type}/{vmid}/{**action}", async (HttpContext ctx, string node, string type, string vmid, string action) =>
         {
             var form = ctx.Request.HasFormContentType ? await ctx.Request.ReadFormAsync() : null;
@@ -165,7 +169,7 @@ public class ProxmoxSourceTests
 
             var log = File.ReadAllText(path);
             Assert.Contains("\"node/pve\"", log);
-            Assert.Contains("нужен SSH: no SSH login saved yet", log);
+            Assert.Contains("нужен вход: no SSH login saved yet", log);
             Assert.Single(System.Text.RegularExpressions.Regex.Matches(log, "cluster/resources changed"));
             Assert.DoesNotContain(FakeProxmox.Secret, log);
         }
@@ -192,9 +196,39 @@ public class ProxmoxSourceTests
     {
         await using var pve = await FakeProxmox.StartAsync(agent: false);
         using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
-        var vm = await PollUntil(source, "qemu/100", s => s.Note is not null);
+        var vm = await PollUntil(source, "qemu/100", s => s.NeedsLogin);
         Assert.Equal(0, vm.DiskTotal); // Proxmox says disk 0 of 32 GB, which would read as an empty disk
+        Assert.Equal("нужен вход", vm.Note); // no agent: the disk can still come over SSH once a login is saved
+    }
+
+    [Fact]
+    public async Task Windows_vm_without_guest_agent_is_not_asked_for_an_ssh_login()
+    {
+        await using var pve = await FakeProxmox.StartAsync(agent: false, ostype: "win11");
+        using var source = new ProxmoxSource(pve.Config(pinned: true), FakeProxmox.Secret);
+        var vm = await PollUntil(source, "qemu/100", s => s.Note is not null);
+        await Task.Delay(100);
+        vm = (await source.FetchAsync(default)).Single(s => s.Id == "qemu/100");
+        Assert.False(vm.NeedsLogin);
         Assert.Equal("нужен qemu-guest-agent", vm.Note);
+    }
+
+    [Fact]
+    public async Task Vm_address_without_agent_is_the_saved_ssh_host()
+    {
+        await using var pve = await FakeProxmox.StartAsync(agent: false);
+        var cfg = pve.Config(pinned: true);
+        cfg.GuestLogins["qemu/100"] = new("10.0.0.77", "root", null);
+        using var source = new ProxmoxSource(cfg, FakeProxmox.Secret);
+        Assert.Equal("10.0.0.77", await source.AddressAsync("qemu/100", "pve", default));
+    }
+
+    [Fact]
+    public void Mac_addresses_are_read_from_the_vm_config()
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(
+            """{"ostype":"l26","net0":"virtio=BC:24:11:AA:BB:CC,bridge=vmbr0,firewall=1","net1":"e1000=de:ad:be:ef:00:01,bridge=vmbr1","name":"network-test"}""");
+        Assert.Equal(["bc:24:11:aa:bb:cc", "de:ad:be:ef:00:01"], ProxmoxSource.MacsOf(doc.RootElement));
     }
 
     /// <summary>The agent is asked in the background, so its answer shows up on a later poll.</summary>
@@ -216,7 +250,8 @@ public class ProxmoxSourceTests
         var node = (await source.FetchAsync(default))[0];
         Assert.Null(source.Problem);
         Assert.Null(node.TempC);
-        Assert.Equal("нужен SSH", node.Note);
+        Assert.Equal("нужен вход", node.Note);
+        Assert.True(node.NeedsLogin);
     }
 
     [Fact]

@@ -126,6 +126,15 @@
       <Setter Property="Padding" Value="8,2" />
     </Style>
 
+    <!-- "log in" marker where SSH figures are missing -->
+    <Style Selector="Button.login">
+      <Setter Property="Padding" Value="8,1" />
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="CornerRadius" Value="9" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+
     <Style Selector="Button.inspector">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -358,8 +367,11 @@
                     <TextBlock Grid.Row="2" Grid.Column="2" Classes="v" Text="{Binding DiskPctText}" />
                   </Grid>
                   <DockPanel>
-                    <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="11" Text="{Binding UptimeText}" />
-                    <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding TempText}"
+                    <TextBlock DockPanel.Dock="Right" Classes="muted" FontSize="11" VerticalAlignment="Center" Text="{Binding UptimeText}" />
+                    <Button DockPanel.Dock="Right" Classes="login" Margin="0,0,8,0" Content="{app:T 'войти'}"
+                            IsVisible="{Binding NeedsLogin}" Click="Login_Click"
+                            ToolTip.Tip="{app:T 'Сохранить вход по SSH: без него не видно температуру, сеть и подключения'}" />
+                    <TextBlock FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Text="{Binding TempText}"
                                Foreground="{Binding Temp, Converter={x:Static app:Converters.TempBrush}}" />
                   </DockPanel>
                 </StackPanel>
@@ -516,6 +528,7 @@
               <MenuItem x:Name="SectionMenu" Header="{app:T 'Переместить в раздел'}" />
               <MenuItem x:Name="MoveMenu" Header="{app:T 'Переместить во вкладку'}" />
               <MenuItem Header="{app:T 'Добавить виджет'}" Click="AddWidget_Click" />
+              <MenuItem x:Name="LoginItem" Header="{app:T 'Вход по SSH…'}" Click="LoginMenu_Click" />
               <Separator />
               <!-- Last, like Properties in Windows menus. -->
               <MenuItem Header="{app:T 'Свойства'}" Click="Details_Click" FontWeight="SemiBold" />
@@ -590,8 +603,10 @@
                 <DataTemplate x:DataType="app:ResourceRow">
                   <Grid ColumnDefinitions="40,*" Margin="12,0" Background="Transparent" ToolTip.Tip="{Binding DiskText}">
                     <TextBlock Text="{Binding DiskPctText}" />
-                    <ProgressBar Grid.Column="1" Classes="thin" Value="{Binding DiskPct}"
+                    <ProgressBar Grid.Column="1" Classes="thin" Value="{Binding DiskPct}" IsVisible="{Binding !NeedsLogin}"
                                  Foreground="{Binding DiskPct, Converter={x:Static app:Converters.LoadBrush}}" />
+                    <Button Grid.Column="1" Classes="login" Content="{app:T 'войти'}" IsVisible="{Binding NeedsLogin}" Click="Login_Click"
+                            ToolTip.Tip="{app:T 'Сохранить вход по SSH: без него и без qemu-guest-agent не видно диск и адрес этой VM'}" />
                   </Grid>
                 </DataTemplate>
               </DataGridTemplateColumn.CellTemplate>

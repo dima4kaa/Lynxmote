@@ -178,6 +178,7 @@ public partial class MainWindow : Window
             {
                 Item(L.T(node.IsFilterActive ? "Показать все VM" : "Показать только VM этой ноды"), () => Vm.ToggleNodeFilter(node)),
                 Item(L.T("Терминал"), () => OpenTerminal(node)),
+                Item(L.T("Вход по SSH…"), () => OpenLogin(node)),
                 Item(L.T("Добавить виджет"), () => Vm.AddWidget(node)),
                 new Separator(),
                 Bold(Item(L.T("Свойства"), () => OpenProperties(node))),
@@ -211,6 +212,27 @@ public partial class MainWindow : Window
 
     void OpenTerminal(ResourceRow row) => new TerminalWindow(row, Vm).Show(this);
 
+    // ---- SSH login without the terminal ----
+
+    void Login_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is ResourceRow row) OpenLogin(row);
+    }
+
+    void LoginMenu_Click(object? sender, RoutedEventArgs e)
+    {
+        if (SelectedRows.FirstOrDefault() is { } row) OpenLogin(row);
+    }
+
+    /// <summary>Only real servers have something to log in to; the demo cluster needs no SSH.</summary>
+    bool CanLogin(ResourceRow row) => Vm.SourceOf(row) is ProxmoxSource && (row.IsNode || row.LocalId.StartsWith("qemu/"));
+
+    void OpenLogin(ResourceRow row)
+    {
+        if (CanLogin(row) && Vm.SourceOf(row) is ProxmoxSource source && Vm.ConfigOf(row) is { } cfg)
+            new LoginWindow(row, Vm, source, cfg).ShowDialog(this);
+    }
+
     void RowMenu_Opening(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         var rows = SelectedRows;
@@ -224,6 +246,7 @@ public partial class MainWindow : Window
         StartItem.IsVisible = Guests(running: false).Count > 0;
         StopItem.IsVisible = RebootItem.IsVisible = Guests(running: true).Count > 0;
         SnapshotItem.IsVisible = PowerSeparator.IsVisible = rows.Any(r => !r.IsNode);
+        LoginItem.IsVisible = rows.Count == 1 && CanLogin(rows[0]);
 
         SectionMenu.Items.Clear();
         foreach (var section in Vm.Sections)

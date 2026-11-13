@@ -73,7 +73,7 @@ public partial class TerminalWindow : Window
             (host, user, password, target) = (guest.Host, guest.User, Secrets.Unprotect(guest.ProtectedPassword), TerminalTarget.Node);
         else
             (host, user, password) = (await source.NodeAddressAsync(row.Node, default), cfg.SshUser, Secrets.Unprotect(cfg.ProtectedSshPassword));
-        if (user is null || password is null || !cfg.SshHostKeys.TryGetValue(host, out var key))
+        if (user is null || (password is null && !SshLogin.HasKeys) || !cfg.SshHostKeys.TryGetValue(host, out var key))
             return (null, L.T("Нужен вход по SSH: откройте «Терминал» один раз, чтобы сохранить его"));
         var r = await SshTerminal.ConnectAsync(host, user, password, key, LabelOf(row), target, vmid, default);
         return (r.Terminal, r.Terminal is null ? r.Error ?? L.T("Ключ сервера изменился, откройте «Терминал»") : null);
@@ -101,10 +101,10 @@ public partial class TerminalWindow : Window
         var (user, password) = guest is null
             ? (cfg.SshUser, Secrets.Unprotect(cfg.ProtectedSshPassword))
             : (guest.User, Secrets.Unprotect(guest.ProtectedPassword));
-        if (user is not null && password is not null)
+        if (user is not null && (password is not null || SshLogin.HasKeys))
         {
             UserBox.Text = user;
-            PasswordBox.Text = password;
+            PasswordBox.Text = password ?? "";
             await ConnectAsync(cfg);
         }
         else
@@ -148,9 +148,10 @@ public partial class TerminalWindow : Window
 
         if (result.Terminal is { } terminal)
         {
-            if (_direct) cfg.GuestLogins[_row!.LocalId] = new(_host!, user, Secrets.Protect(password));
-            else (cfg.SshUser, cfg.ProtectedSshPassword) = (user, Secrets.Protect(password));
+            if (_direct) cfg.GuestLogins[_row!.LocalId] = new(_host!, user, Secrets.ProtectPassword(password));
+            else (cfg.SshUser, cfg.ProtectedSshPassword) = (user, Secrets.ProtectPassword(password));
             _vm!.SaveSettings();
+            (_vm.SourceOf(_row!) as ProxmoxSource)?.Relogin(_row!.LocalId); // the table picks the login up at once
 
             // A stopped guest or a VM without the agent fails every command the same way: find out once, up front.
             CommandResult? failed = null;
